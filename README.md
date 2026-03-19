@@ -36,6 +36,9 @@ Pricing shouldn't feel like a penalty. The UI breaks down exactly how the ₹72.
 - **Heatwave/Weather Risk Delta:** +₹12
 - **High-Risk Location Delta:** +₹10.50
 
+### 5. MongoDB Atlas Persistence ☁️
+All claims and policy data are persisted using **MongoDB Atlas** for traceability and analytics.
+
 ---
 
 ## 🛠 Tech Stack
@@ -57,3 +60,10 @@ npm run dev
 ```
 
 *(Worker UI: `localhost:3000` | Admin Command Center: `localhost:3000/admin`)*
+
+---
+## 🏆 Why Our Solution Stands Out
+- **Fraud-resilient parametric insurance** using graph clustering to natively halt bot rings.
+- **Real-time automated claims** bypassing human verification forms.
+- **Explainable AI decisions** returning auditable transparent reasoning dynamically.
+- **Designed for adversarial environments** natively blocking market crash attempts.
