@@ -1,0 +1,29 @@
+{
+  "name": "risk_scoring_flow",
+  "description": "Calculates the weekly premium dynamically using AI risk scoring based on external weather, traffic, and location data.",
+  "trigger": "weekly_cron_or_on_demand",
+  "steps": [
+    {
+      "step_id": "fetch_external_data",
+      "action": "call_api",
+      "endpoint": "/api/services/weather_traffic",
+      "output_key": "environmental_data"
+    },
+    {
+      "step_id": "run_risk_model",
+      "action": "execute_python_script",
+      "script": "ai-engine/risk_model.py",
+      "input_args": "{{environmental_data}}",
+      "output_key": "premium_calculation"
+    },
+    {
+      "step_id": "update_user_policy",
+      "action": "update_database",
+      "table": "policies",
+      "data": {
+        "weekly_premium_inr": "{{premium_calculation.weekly_premium_inr}}",
+        "risk_score": "{{premium_calculation.risk_score}}"
+      }
+    }
+  ]
+}

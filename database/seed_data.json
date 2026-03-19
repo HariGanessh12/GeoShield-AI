@@ -1,0 +1,10 @@
+{
+  "users": [
+    { "id": "u101", "name": "Rahul Delivery", "zone": "Delhi South", "policy_active": true },
+    { "id": "u102", "name": "Amit Logistics", "zone": "Mumbai North", "policy_active": true }
+  ],
+  "claims_history": [
+    { "workerId": "u101", "disruptionType": "HEATWAVE", "claimAmount": 200, "status": "APPROVED", "date": "2026-03-01" },
+    { "workerId": "u101", "disruptionType": "POLLUTION", "claimAmount": 150, "status": "APPROVED", "date": "2026-03-10" }
+  ]
+}

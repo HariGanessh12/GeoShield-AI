@@ -1,0 +1,33 @@
+{
+  "name": "fraud_analysis_flow",
+  "description": "Multi-signal verification for fraud detection, compiling rule-based, behavioral, and graph-based signals.",
+  "trigger": "on_claim_initiated",
+  "steps": [
+    {
+      "step_id": "check_rule_based",
+      "action": "rule_engine",
+      "rules": ["ip_mismatch", "gps_sensor_validation", "time_travel_impossibility"],
+      "output_key": "rules_status"
+    },
+    {
+      "step_id": "behavioral_anomaly",
+      "action": "execute_python_script",
+      "script": "ai-engine/fraud_model.py",
+      "input_args": "{{claim_history_and_current}}",
+      "output_key": "anomaly_result"
+    },
+    {
+      "step_id": "graph_analysis",
+      "action": "execute_python_script",
+      "script": "ai-engine/graph_detection.py",
+      "input_args": "{{network_clustering_data}}",
+      "output_key": "graph_result"
+    },
+    {
+      "step_id": "aggregate_fraud_signals",
+      "action": "combine_results",
+      "inputs": ["{{rules_status}}", "{{anomaly_result}}", "{{graph_result}}"],
+      "output_key": "aggregated_fraud_profile"
+    }
+  ]
+}

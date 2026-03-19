@@ -1,0 +1,37 @@
+{
+  "name": "claim_decision_flow",
+  "description": "Calculates the final trust score and routes the claim automatically.",
+  "trigger": "after_fraud_analysis",
+  "steps": [
+    {
+      "step_id": "calculate_trust_score",
+      "action": "trust_score_engine",
+      "inputs": {
+        "fraud_profile": "{{aggregated_fraud_profile}}",
+        "user_history": "{{user_trust_history}}"
+      },
+      "output_key": "final_trust_score"
+    },
+    {
+      "step_id": "decision_engine",
+      "action": "conditional_routing",
+      "conditions": [
+        {
+          "if": "{{final_trust_score}} >= 80",
+          "then": "approve_payout",
+          "action_details": { "gateway": "razorpay", "status": "approved" }
+        },
+        {
+          "if": "{{final_trust_score}} >= 50 && {{final_trust_score}} < 80",
+          "then": "flag_verification",
+          "action_details": { "status": "manual_review_required", "notify_user": true }
+        },
+        {
+          "if": "{{final_trust_score}} < 50",
+          "then": "reject_fraud",
+          "action_details": { "status": "rejected", "flag_account": true }
+        }
+      ]
+    }
+  ]
+}
