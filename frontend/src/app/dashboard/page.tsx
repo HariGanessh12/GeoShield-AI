@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { apiUrl } from '@/lib/api';
 
 export default function WorkerDashboard() {
   const [claimResult, setClaimResult] = useState<any>(null);
@@ -11,7 +12,7 @@ export default function WorkerDashboard() {
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/claim/history');
+      const res = await fetch(apiUrl('/api/claim/history'));
       if (res.ok) {
         const data = await res.json();
         setClaimsHistory(data);
@@ -46,7 +47,7 @@ export default function WorkerDashboard() {
           realWorkerId = payload.id;
       }
 
-      const res = await fetch('http://localhost:8000/api/claim/auto-trigger', {
+      const res = await fetch(apiUrl('/api/claim/auto-trigger'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

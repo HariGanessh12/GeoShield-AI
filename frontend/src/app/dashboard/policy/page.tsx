@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { apiUrl } from '@/lib/api';
 
 export default function PolicyDashboard() {
   const [quote, setQuote] = useState<any>(null);
@@ -27,7 +28,7 @@ export default function PolicyDashboard() {
       }).join(''));
       const payload = JSON.parse(jsonPayload);
 
-      const res = await fetch('http://localhost:8000/api/policy/quote', {
+      const res = await fetch(apiUrl('/api/policy/quote'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: payload.id })
@@ -51,7 +52,7 @@ export default function PolicyDashboard() {
       }).join(''));
       const payload = JSON.parse(jsonPayload);
 
-      const res = await fetch('http://localhost:8000/api/policy/activate', {
+      const res = await fetch(apiUrl('/api/policy/activate'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: payload.id, premiumPaid: quote.quote, coverageAmount: quote.coverageAmount })

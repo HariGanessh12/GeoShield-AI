@@ -1,13 +1,14 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { apiUrl } from '@/lib/api';
 
 export default function AdminUsersDashboard() {
   const [users, setUsers] = useState<any[]>([]);
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/auth/users');
+      const res = await fetch(apiUrl('/api/auth/users'));
       if (res.ok) {
         const data = await res.json();
         setUsers(data);
@@ -28,7 +29,7 @@ export default function AdminUsersDashboard() {
 
   const handleRoleChange = async (userId: string, newRole: string) => {
     try {
-      await fetch(`http://localhost:8000/api/auth/users/${userId}/role`, {
+      await fetch(apiUrl(`/api/auth/users/${userId}/role`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role: newRole })
@@ -40,7 +41,7 @@ export default function AdminUsersDashboard() {
   const handleDeleteUser = async (userId: string) => {
     if (!confirm("Are you sure you want to delete this user?")) return;
     try {
-      await fetch(`http://localhost:8000/api/auth/users/${userId}`, { method: 'DELETE' });
+      await fetch(apiUrl(`/api/auth/users/${userId}`), { method: 'DELETE' });
       fetchUsers();
     } catch (e) { }
   };

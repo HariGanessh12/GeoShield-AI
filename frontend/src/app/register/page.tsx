@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { apiUrl } from '@/lib/api';
 
 export default function RegisterPage() {
     const router = useRouter();
@@ -16,7 +17,7 @@ export default function RegisterPage() {
         e.preventDefault();
         setLoading(true);
         try {
-            const res = await fetch('http://localhost:8000/api/auth/register', {
+            const res = await fetch(apiUrl('/api/auth/register'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password, persona, zone })
