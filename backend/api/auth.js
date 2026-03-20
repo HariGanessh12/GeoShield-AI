@@ -21,35 +21,49 @@ const seedAdmin = async () => {
 setTimeout(seedAdmin, 3000);
 
 router.post('/register', async (req, res) => {
-    const { email, password } = req.body;
+    const { email, password, persona, zone } = req.body;
     try {
         const existing = await User.findOne({ email });
         if (existing) return res.status(400).json({ error: "Email already exists" });
         
-        const user = await User.create({ email, password, role: 'worker' });
-        res.json({ message: "Registered successfully", user: { email: user.email, role: user.role } });
+        const user = await User.create({ 
+            email, 
+            password, 
+            role: 'worker', 
+            persona: persona || 'Food Delivery', 
+            zone: zone || 'Delhi NCR', 
+            reputationScore: 85 
+        });
+        res.json({ message: "Registered successfully", user: { email: user.email, role: user.role, persona: user.persona, zone: user.zone } });
     } catch (e) {
         res.status(500).json({ error: "Registration failed" });
     }
 });
 
 router.post('/login', async (req, res) => {
-    const { email, password } = req.body;
-    
-    const user = await User.findOne({ email, password });
-    if (!user) {
-        return res.status(401).json({ error: "Invalid email or password." });
+    try {
+        const { email, password } = req.body;
+        
+        const user = await User.findOne({ email, password });
+        if (!user) {
+            return res.status(401).json({ error: "Invalid email or password." });
+        }
+
+        const payload = {
+            id: user._id,
+            email: user.email,
+            role: user.role,
+            persona: user.persona,
+            zone: user.zone
+        };
+
+        const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
+
+        res.json({ token, user: payload });
+    } catch (error) {
+        console.error("Login Route Error:", error);
+        res.status(500).json({ error: "Internal Server Error or DB Timeout." });
     }
-
-    const payload = {
-        id: user._id,
-        email: user.email,
-        role: user.role
-    };
-
-    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
-
-    res.json({ token, user: payload });
 });
 
 // Admin User Management endpoints

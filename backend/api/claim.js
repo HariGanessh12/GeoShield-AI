@@ -13,11 +13,28 @@ router.get('/history', async (req, res) => {
     }
 });
 
+const User = require('../models/user');
+
 router.post('/auto-trigger', async (req, res) => {
-    const { workerId, disruptionFactor, userProfile } = req.body;
+    const { workerId, disruptionFactor } = req.body;
     
-    // Default mock user profile if not passed
-    const profile = userProfile || { reputation: 85, claims_history: [100, 120] };
+    // Fetch user to apply specific Zone risks
+    let user;
+    try {
+        if (workerId !== 'u101') user = await User.findById(workerId);
+    } catch(e) {}
+    
+    if (!user) user = { zone: 'Delhi NCR', reputationScore: 85, _id: workerId || "u101" };
+
+    const profile = { reputation: user.reputationScore || 85, claims_history: [100, 120] };
+    
+    // Dynamic Weather severity mock based on chosen DB zone
+    let severity = disruptionFactor.severity || 0.80;
+    if (user.zone === 'Mumbai South' && disruptionFactor.type === 'HEAVY_RAIN') severity = 0.95;
+    if (user.zone === 'Delhi NCR' && disruptionFactor.type === 'HEATWAVE') severity = 0.92;
+    if (user.zone === 'Bangalore Central' && disruptionFactor.type === 'PLATFORM_OUTAGE') severity = 0.88;
+    
+    disruptionFactor.severity = severity;
     
     // Base rule check
     if (disruptionFactor.severity < 0.5 && disruptionFactor.type !== 'PLATFORM_OUTAGE') {

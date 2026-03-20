@@ -23,6 +23,7 @@ app.get('/health', (req, res) => res.json({ status: 'GeoShield-AI Platform Opera
 app.use('/api/auth', require('./api/auth'));
 app.use('/api/claim', require('./api/claim'));
 app.use('/api/risk', require('./api/risk'));
+app.use('/api/policy', require('./api/policy'));
 
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {
