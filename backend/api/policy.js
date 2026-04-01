@@ -3,6 +3,20 @@ const router = express.Router();
 const User = require('../models/user');
 const Policy = require('../models/policy');
 
+router.get('/current', async (req, res) => {
+    try {
+        if (!req.user || !req.user.id) {
+            return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        const policy = await Policy.findOne({ workerId: req.user.id }).sort({ createdAt: -1 });
+        res.json({ policy });
+    } catch (e) {
+        console.error("Current policy fetch error:", e);
+        res.status(500).json({ error: "Could not fetch current policy" });
+    }
+});
+
 // Dynamically Calculate Weekly Premium based on AI Constraints
 router.post('/quote', async (req, res) => {
     try {

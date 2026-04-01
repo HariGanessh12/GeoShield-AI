@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const User = require('../models/user');
+const { verifyToken, verifyAdmin } = require('../middleware/authMiddleware');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'geoshield_super_secret_key_2026';
 
@@ -67,7 +68,7 @@ router.post('/login', async (req, res) => {
 });
 
 // Admin User Management endpoints
-router.get('/users', async (req, res) => {
+router.get('/users', verifyToken, verifyAdmin, async (req, res) => {
     try {
         const users = await User.find({}, '-password').sort({ createdAt: -1 });
         res.json(users);
@@ -76,7 +77,7 @@ router.get('/users', async (req, res) => {
     }
 });
 
-router.put('/users/:id/role', async (req, res) => {
+router.put('/users/:id/role', verifyToken, verifyAdmin, async (req, res) => {
     try {
         const { role } = req.body;
         await User.findByIdAndUpdate(req.params.id, { role });
@@ -86,7 +87,7 @@ router.put('/users/:id/role', async (req, res) => {
     }
 });
 
-router.delete('/users/:id', async (req, res) => {
+router.delete('/users/:id', verifyToken, verifyAdmin, async (req, res) => {
     try {
         await User.findByIdAndDelete(req.params.id);
         res.json({ success: true, message: "User deleted" });

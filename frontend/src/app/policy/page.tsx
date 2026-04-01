@@ -1,0 +1,191 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { apiFetch } from "@/utils/api-client";
+import { getSessionUser } from "@/utils/auth";
+import { formatCurrency, formatDate, statusTone } from "@/utils/format";
+
+type Policy = {
+  status: string;
+  coverageAmount: number;
+  premiumPaid: number;
+  startDate: string;
+  endDate: string;
+};
+
+type QuoteResponse = {
+  quote: number;
+  breakdown: {
+    base: number;
+    zoneSurcharge: number;
+    reputationDiscount: number;
+  };
+  coverageAmount: number;
+};
+
+type PolicyResponse = { policy: Policy | null };
+
+const toneClass: Record<string, string> = {
+  success: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
+  warning: "border-amber-500/30 bg-amber-500/10 text-amber-300",
+  danger: "border-rose-500/30 bg-rose-500/10 text-rose-300",
+};
+
+export default function PolicyPage() {
+  const [policy, setPolicy] = useState<Policy | null>(null);
+  const [quote, setQuote] = useState<QuoteResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [activating, setActivating] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const user = getSessionUser();
+    if (!user) return;
+
+    const load = async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const [policyData, quoteData] = await Promise.all([
+          apiFetch<PolicyResponse>("/api/policy/current"),
+          apiFetch<QuoteResponse>("/api/policy/quote", {
+            method: "POST",
+            body: JSON.stringify({ userId: user.id }),
+          }),
+        ]);
+
+        setPolicy(policyData.policy);
+        setQuote(quoteData);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Could not load policy details");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void load();
+  }, []);
+
+  const activatePolicy = async () => {
+    const user = getSessionUser();
+    if (!user || !quote) return;
+
+    setActivating(true);
+    setError("");
+    try {
+      const response = await apiFetch<{ policy: Policy }>("/api/policy/activate", {
+        method: "POST",
+        body: JSON.stringify({
+          userId: user.id,
+          premiumPaid: quote.quote,
+          coverageAmount: quote.coverageAmount,
+        }),
+      });
+
+      setPolicy(response.policy);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not activate policy");
+    } finally {
+      setActivating(false);
+    }
+  };
+
+  return (
+    <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+      <section className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-8 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70">
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-300 light-mode:text-emerald-700">Coverage</p>
+        <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h1 className="text-4xl font-black text-white light-mode:text-slate-900">Policy center</h1>
+            <p className="mt-3 max-w-2xl text-white/65 light-mode:text-slate-600">
+              Review your current protection window and activate a new weekly plan when needed.
+            </p>
+          </div>
+          <Link href="/dashboard" className="text-sm font-semibold text-sky-300 light-mode:text-sky-700">
+            Back to dashboard
+          </Link>
+        </div>
+      </section>
+
+      {error ? <div className="mt-6 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-5 py-4 text-sm text-rose-200 light-mode:text-rose-700">{error}</div> : null}
+
+      <section className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70">
+          <h2 className="text-2xl font-black text-white light-mode:text-slate-900">Current status</h2>
+          {loading ? (
+            <div className="mt-6 rounded-2xl border border-dashed border-white/10 px-4 py-10 text-sm text-white/50 light-mode:border-black/10 light-mode:text-slate-500">
+              Loading policy details...
+            </div>
+          ) : policy ? (
+            <div className="mt-6 space-y-4">
+              <div className={`inline-flex rounded-full border px-4 py-2 text-sm font-bold ${toneClass[statusTone(policy.status)]}`}>
+                {policy.status.toUpperCase()}
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-5 light-mode:border-black/10 light-mode:bg-white">
+                  <p className="text-sm text-white/50 light-mode:text-slate-500">Coverage amount</p>
+                  <p className="mt-2 text-3xl font-black text-white light-mode:text-slate-900">{formatCurrency(policy.coverageAmount)}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-5 light-mode:border-black/10 light-mode:bg-white">
+                  <p className="text-sm text-white/50 light-mode:text-slate-500">Premium paid</p>
+                  <p className="mt-2 text-3xl font-black text-white light-mode:text-slate-900">{formatCurrency(policy.premiumPaid)}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-5 light-mode:border-black/10 light-mode:bg-white">
+                  <p className="text-sm text-white/50 light-mode:text-slate-500">Start date</p>
+                  <p className="mt-2 text-lg font-bold text-white light-mode:text-slate-900">{formatDate(policy.startDate)}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-5 light-mode:border-black/10 light-mode:bg-white">
+                  <p className="text-sm text-white/50 light-mode:text-slate-500">End date</p>
+                  <p className="mt-2 text-lg font-bold text-white light-mode:text-slate-900">{formatDate(policy.endDate)}</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-6 rounded-2xl border border-dashed border-white/10 px-4 py-10 text-sm text-white/50 light-mode:border-black/10 light-mode:text-slate-500">
+              No active policy found yet. You can activate one from the quote panel.
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70">
+          <h2 className="text-2xl font-black text-white light-mode:text-slate-900">Weekly quote</h2>
+          {quote ? (
+            <div className="mt-6 space-y-4">
+              <div className="rounded-3xl border border-emerald-500/20 bg-emerald-500/10 p-6 text-center">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-300 light-mode:text-emerald-700">Premium</p>
+                <p className="mt-3 text-5xl font-black text-white light-mode:text-slate-900">{formatCurrency(quote.quote)}</p>
+                <p className="mt-2 text-sm text-white/65 light-mode:text-slate-600">Coverage up to {formatCurrency(quote.coverageAmount)}</p>
+              </div>
+              <div className="space-y-3 text-sm text-white/70 light-mode:text-slate-600">
+                <div className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3 light-mode:border-black/10">
+                  <span>Base premium</span>
+                  <span>{formatCurrency(quote.breakdown.base)}</span>
+                </div>
+                <div className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3 light-mode:border-black/10">
+                  <span>Zone surcharge</span>
+                  <span>+{formatCurrency(quote.breakdown.zoneSurcharge)}</span>
+                </div>
+                <div className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3 light-mode:border-black/10">
+                  <span>Reputation discount</span>
+                  <span>-{formatCurrency(quote.breakdown.reputationDiscount)}</span>
+                </div>
+              </div>
+              <button
+                onClick={activatePolicy}
+                disabled={activating}
+                className="w-full rounded-2xl bg-emerald-500 px-5 py-4 text-sm font-black text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {activating ? "Activating..." : "Activate weekly policy"}
+              </button>
+            </div>
+          ) : (
+            <div className="mt-6 rounded-2xl border border-dashed border-white/10 px-4 py-10 text-sm text-white/50 light-mode:border-black/10 light-mode:text-slate-500">
+              Quote unavailable right now.
+            </div>
+          )}
+        </div>
+      </section>
+    </main>
+  );
+}

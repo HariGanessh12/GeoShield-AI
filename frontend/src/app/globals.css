@@ -4,6 +4,8 @@
   --foreground-rgb: 255, 255, 255;
   --background-start-rgb: 13, 15, 23;
   --background-end-rgb: 0, 0, 0;
+  --font-sans: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Consolas", "SFMono-Regular", "Liberation Mono", monospace;
 }
 
 @layer base {
@@ -13,8 +15,14 @@
   body {
     background-color: #0d0f17;
     color: #ffffff;
+    font-family: var(--font-sans);
     font-feature-settings: "rlig" 1, "calt" 1;
     -webkit-font-smoothing: antialiased;
+  }
+
+  code,
+  pre {
+    font-family: var(--font-mono);
   }
 }
 
