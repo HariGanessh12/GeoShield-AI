@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { apiFetch } from "@/utils/api-client";
 import { getSessionUser } from "@/utils/auth";
 import { formatCurrency } from "@/utils/format";
+import { normalizePremiumResponse, type PremiumResponse } from "@/utils/risk";
 
 type ZoneRiskResponse = {
   zones: Array<{
@@ -13,13 +14,6 @@ type ZoneRiskResponse = {
     risk_level: string;
     reason: string;
   }>;
-};
-
-type PremiumResponse = {
-  weekly_premium_inr: number;
-  expected_loss_inr: number;
-  risk_margin_inr: number;
-  platform_fee_inr: number;
 };
 
 const containerVariants = {
@@ -61,7 +55,7 @@ export default function RiskPage() {
       try {
         const [riskData, premiumData] = await Promise.all([
           apiFetch<ZoneRiskResponse>("/api/risk/zone-risk"),
-          apiFetch<PremiumResponse>("/api/risk/premium-breakdown", {
+          apiFetch<Record<string, unknown>>("/api/risk/premium-breakdown", {
             method: "POST",
             body: JSON.stringify({
               weather: inputs.weather,
@@ -72,7 +66,7 @@ export default function RiskPage() {
           }),
         ]);
         setRisk(riskData.zones);
-        setPremium(premiumData);
+        setPremium(normalizePremiumResponse(premiumData));
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not load risk data");
       } finally {

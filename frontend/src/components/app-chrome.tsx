@@ -3,21 +3,24 @@
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Navbar } from "@/components/navbar";
-import { getSessionUser } from "@/utils/auth";
+import { useIsHydrated, useSessionUser } from "@/utils/client-state";
 
 const publicRoutes = new Set(["/", "/register"]);
 
 export function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const user = getSessionUser();
+  const hydrated = useIsHydrated();
+  const user = useSessionUser();
   const isPublic = publicRoutes.has(pathname);
   const shouldBlockRender =
+    !hydrated ||
     (!user && !isPublic) ||
     (Boolean(user) && pathname === "/") ||
     (user?.role !== "admin" && pathname.startsWith("/admin"));
 
   useEffect(() => {
+    if (!hydrated) return;
     if (!user && !isPublic) {
       router.replace("/");
       return;
@@ -30,7 +33,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
       router.replace("/dashboard");
       return;
     }
-  }, [isPublic, pathname, router, user]);
+  }, [hydrated, isPublic, pathname, router, user]);
 
   if (shouldBlockRender) return <div className="min-h-screen bg-[#0d0f17]" />;
 

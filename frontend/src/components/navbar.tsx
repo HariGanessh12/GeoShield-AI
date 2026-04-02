@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import ThemeToggle from "@/app/ThemeToggle";
-import { clearSession, getSessionUser } from "@/utils/auth";
+import { clearSession } from "@/utils/auth";
+import { useIsHydrated, useSessionUser } from "@/utils/client-state";
 
 type NavItem = {
   href: string;
@@ -23,8 +24,9 @@ const navItems: NavItem[] = [
 export function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
+  const hydrated = useIsHydrated();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const user = getSessionUser();
+  const user = useSessionUser();
 
   const visibleItems = useMemo(
     () => navItems.filter((item) => !item.adminOnly || user?.role === "admin"),
@@ -35,8 +37,28 @@ export function Navbar() {
 
   const handleLogout = () => {
     clearSession();
+    window.dispatchEvent(new Event("storage"));
     router.push("/");
   };
+
+  if (!hydrated) {
+    return (
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0d0f17]/75 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/80">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-sky-500 to-emerald-400 shadow-lg shadow-indigo-500/30">
+              <span className="text-sm font-black text-white">GS</span>
+            </div>
+            <div>
+              <div className="text-sm font-black uppercase tracking-[0.2em] text-white light-mode:text-slate-900">GeoShield-AI</div>
+              <div className="text-[11px] text-white/50 light-mode:text-slate-500">Adaptive coverage for gig workers</div>
+            </div>
+          </div>
+          <ThemeToggle />
+        </div>
+      </header>
+    );
+  }
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0d0f17]/75 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/80">

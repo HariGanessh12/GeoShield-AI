@@ -1,28 +1,30 @@
 ﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { useIsHydrated, useThemePreference } from "@/utils/client-state";
 
 export default function ThemeToggle() {
-  const [isLight, setIsLight] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem("geoshield_theme") === "light";
-  });
+  const hydrated = useIsHydrated();
+  const isLight = useThemePreference();
 
   useEffect(() => {
+    if (!hydrated) return;
     document.documentElement.classList.toggle("light-mode", isLight);
-  }, [isLight]);
+  }, [hydrated, isLight]);
 
   const toggleTheme = () => {
     if (isLight) {
       document.documentElement.classList.remove("light-mode");
       localStorage.setItem("geoshield_theme", "dark");
-      setIsLight(false);
+      window.dispatchEvent(new Event("storage"));
     } else {
       document.documentElement.classList.add("light-mode");
       localStorage.setItem("geoshield_theme", "light");
-      setIsLight(true);
+      window.dispatchEvent(new Event("storage"));
     }
   };
+
+  if (!hydrated) return null;
 
   return (
     <button

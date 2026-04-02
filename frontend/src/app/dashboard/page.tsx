@@ -6,12 +6,11 @@ import { motion } from "framer-motion";
 import { apiFetch } from "@/utils/api-client";
 import { getSessionUser } from "@/utils/auth";
 import { formatCurrency, statusTone } from "@/utils/format";
+import { normalizePremiumResponse, type PremiumResponse } from "@/utils/risk";
 
 type Claim = { _id?: string; trigger: string; trustScore: number; status: string; payout: number; reasons?: string[]; createdAt: string };
 type PolicyResponse = { policy: { status: string; coverageAmount: number; premiumPaid: number; endDate: string } | null };
 type ZoneRiskResponse = { zones: Array<{ risk_level: string; reason: string }> };
-type PremiumResponse = { weekly_premium_inr: number; expected_loss_inr: number; risk_margin_inr: number; platform_fee_inr: number };
-
 const zoneInputs: Record<string, { weather: number; traffic: number; location: number }> = {
   "Delhi NCR": { weather: 72, traffic: 80, location: 68 },
   "Mumbai South": { weather: 88, traffic: 76, location: 74 },
@@ -57,11 +56,11 @@ export default function DashboardPage() {
           apiFetch<Claim[]>("/api/claim/history"),
           apiFetch<PolicyResponse>("/api/policy/current"),
           apiFetch<ZoneRiskResponse>("/api/risk/zone-risk"),
-          apiFetch<PremiumResponse>("/api/risk/premium-breakdown", { method: "POST", body: JSON.stringify({ weather: inputs.weather, traffic: inputs.traffic, location: inputs.location, persona_type: "FOOD_DELIVERY" }) }),
+          apiFetch<Record<string, unknown>>("/api/risk/premium-breakdown", { method: "POST", body: JSON.stringify({ weather: inputs.weather, traffic: inputs.traffic, location: inputs.location, persona_type: "FOOD_DELIVERY" }) }),
         ]);
         setClaims(claimsData);
         setPolicy(policyData.policy);
-        setPremium(premiumData);
+        setPremium(normalizePremiumResponse(premiumData));
         setRisk({ label: riskData.zones[0]?.risk_level || "MEDIUM", reason: riskData.zones[0]?.reason || "No live risk reason returned" });
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not load dashboard");
