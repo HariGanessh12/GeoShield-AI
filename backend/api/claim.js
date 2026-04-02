@@ -21,7 +21,7 @@ router.get('/history', async (req, res) => {
 router.post('/auto-trigger', async (req, res) => {
     try {
         // SECURE: Always derive workerId from verified JWT
-        const workerId = req.user.id;
+        const workerId = req.user && (req.user.id || req.user._id || req.user.userId);
         const { disruptionFactor } = req.body;
 
         if (!workerId || !disruptionFactor) {
@@ -76,24 +76,37 @@ router.post('/auto-trigger', async (req, res) => {
         }
         
         // Evaluate trust score mapping
-        const claimDecision = await trustScoreService.evaluateClaim(workerId, disruptionFactor, profile);
-        
+        let claimDecision = await trustScoreService.evaluateClaim(workerId, disruptionFactor, profile);
+
         // Ensure graceful fallback in case AI microservice failed entirely
-        if (claimDecision.status === 'ERROR') {
-             return res.status(500).json({ error: "AI Engine evaluation failed. Please try again later." });
+        if (!claimDecision || claimDecision.status === 'ERROR') {
+            claimDecision = typeof trustScoreService.buildLocalFallbackDecision === 'function'
+                ? trustScoreService.buildLocalFallbackDecision(workerId, disruptionFactor, profile)
+                : {
+                    status: 'REJECTED',
+                    trust_score: 50,
+                    reasons: ['Local fallback used because AI evaluation was unavailable'],
+                    adjustments: [],
+                    aiConfidence: 0.5
+                };
+            claimDecision.source = claimDecision.source || 'route_fallback';
         }
 
         const payoutAmount = claimDecision.status === 'APPROVED' ? (disruptionFactor.lossAmount || 400) : 0;
-        
-        await Claim.create({
-            workerId: workerId,
-            trigger: disruptionFactor.type,
-            trustScore: claimDecision.trust_score,
-            status: claimDecision.status,
-            payout: payoutAmount,
-            reputationScore: profile.reputation,
-            reasons: claimDecision.reasons
-        });
+
+        try {
+            await Claim.create({
+                workerId: workerId,
+                trigger: disruptionFactor.type,
+                trustScore: claimDecision.trust_score,
+                status: claimDecision.status,
+                payout: payoutAmount,
+                reputationScore: profile.reputation,
+                reasons: claimDecision.reasons
+            });
+        } catch (persistError) {
+            console.warn("Claim persistence failed, returning evaluation anyway:", persistError.message);
+        }
         
         res.json({
             message: "Claim processing completed",
