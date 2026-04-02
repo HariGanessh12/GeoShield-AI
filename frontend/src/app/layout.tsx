@@ -1,15 +1,7 @@
 ﻿import type { Metadata } from "next";
 import "./globals.css";
-import dynamic from "next/dynamic";
 import AuthWrapper from "@/components/AuthWrapper";
-
-const AppChrome = dynamic(
-  () => import("@/components/app-chrome").then((mod) => mod.AppChrome),
-  {
-    ssr: false,
-    loading: () => <div className="min-h-screen bg-[#0d0f17]" />,
-  },
-);
+import ClientAppChrome from "@/components/ClientAppChrome";
 
 export const metadata: Metadata = {
   title: "GeoShield-AI",
@@ -21,7 +13,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en" className="h-full antialiased" data-scroll-behavior="smooth">
       <body className="min-h-full">
         <AuthWrapper>
-          <AppChrome>{children}</AppChrome>
+          <ClientAppChrome>{children}</ClientAppChrome>
         </AuthWrapper>
       </body>
     </html>
