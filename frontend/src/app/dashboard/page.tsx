@@ -37,6 +37,7 @@ const toneClass: Record<string, string> = {
 };
 
 export default function DashboardPage() {
+  const [mounted, setMounted] = useState(false);
   const [claims, setClaims] = useState<Claim[]>([]);
   const [policy, setPolicy] = useState<PolicyResponse["policy"]>(null);
   const [premium, setPremium] = useState<PremiumResponse | null>(null);
@@ -45,6 +46,12 @@ export default function DashboardPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    const frame = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
     const user = getSessionUser();
     if (!user) return;
     const load = async () => {
@@ -69,7 +76,9 @@ export default function DashboardPage() {
       }
     };
     void load();
-  }, []);
+  }, [mounted]);
+
+  if (!mounted) return null;
 
   const lastClaim = claims[0];
   const trustScore = lastClaim?.trustScore || 85;

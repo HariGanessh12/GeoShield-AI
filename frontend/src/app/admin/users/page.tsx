@@ -28,6 +28,7 @@ const itemVariants = {
 
 export default function AdminUsersDashboard() {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -44,13 +45,19 @@ export default function AdminUsersDashboard() {
   };
 
   useEffect(() => {
+    const frame = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
     const role = localStorage.getItem("role");
     if (role !== "admin") {
       router.replace("/");
     } else {
       fetchUsers();
     }
-  }, [router]);
+  }, [mounted, router]);
 
   const handleRoleChange = async (userId: string, newRole: string) => {
     try {
@@ -78,6 +85,8 @@ export default function AdminUsersDashboard() {
       clearSession();
       router.replace("/");
   };
+
+  if (!mounted) return null;
 
   return (
     <div className="min-h-screen bg-[rgb(var(--background-start-rgb))] text-[rgb(var(--foreground-rgb))] font-sans selection:bg-indigo-500/30">

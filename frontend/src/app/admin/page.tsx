@@ -7,18 +7,27 @@ import { clearSession } from "@/utils/auth";
 
 export default function AdminDashboard() {
   const router = useRouter();
+  const [mounted, setMounted] = React.useState(false);
 
   useEffect(() => {
+    const frame = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
     const role = localStorage.getItem("role");
     if (role !== "admin") {
       router.replace("/");
     }
-  }, [router]);
+  }, [mounted, router]);
 
   const handleLogout = () => {
       clearSession();
       router.replace("/");
   };
+
+  if (!mounted) return null;
 
   return (
     <div className="min-h-screen bg-[rgb(var(--background-start-rgb))] text-[rgb(var(--foreground-rgb))] font-sans selection:bg-indigo-500/30">

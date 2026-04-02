@@ -51,6 +51,7 @@ const toneClass: Record<string, string> = {
 };
 
 export default function ClaimsPage() {
+  const [mounted, setMounted] = useState(false);
   const [claims, setClaims] = useState<Claim[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState<string | null>(null);
@@ -71,8 +72,16 @@ export default function ClaimsPage() {
   };
 
   useEffect(() => {
-    void loadClaims();
+    const frame = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(frame);
   }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    void loadClaims();
+  }, [mounted]);
+
+  if (!mounted) return null;
 
   const triggerClaim = async (label: string, disruptionFactor: { type: string; lossAmount: number }) => {
     setSubmitting(label);
