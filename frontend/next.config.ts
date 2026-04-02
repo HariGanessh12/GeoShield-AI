@@ -4,9 +4,6 @@ const basePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || undefined;
 
 const nextConfig: NextConfig = {
   basePath,
-  turbopack: {
-    root: __dirname,
-  },
 };
 
 export default nextConfig;
