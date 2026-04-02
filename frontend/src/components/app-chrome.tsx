@@ -62,7 +62,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
         <div className="absolute right-[-10%] top-[10%] h-96 w-96 rounded-full bg-indigo-500/12 blur-[120px] light-mode:bg-indigo-500/15" />
         <div className="absolute bottom-[-15%] left-[25%] h-120 w-120 rounded-full bg-emerald-500/10 blur-[140px] light-mode:bg-emerald-500/15" />
       </div>
-      <Navbar mounted={mounted} user={user} />
+      <Navbar user={user} />
       {children}
     </div>
   );
