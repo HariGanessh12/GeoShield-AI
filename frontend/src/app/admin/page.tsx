@@ -1,20 +1,23 @@
 "use client";
 import React, { useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { clearSession } from "@/utils/auth";
 
 export default function AdminDashboard() {
+  const router = useRouter();
+
   useEffect(() => {
     const role = localStorage.getItem("role");
     if (role !== "admin") {
-      window.location.href = "/";
+      router.replace("/");
     }
-  }, []);
+  }, [router]);
 
   const handleLogout = () => {
-      localStorage.removeItem("token");
-      localStorage.removeItem("role");
-      window.location.href = "/";
+      clearSession();
+      router.replace("/");
   };
 
   return (

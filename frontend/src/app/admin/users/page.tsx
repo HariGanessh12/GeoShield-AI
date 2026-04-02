@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { apiFetch } from "@/utils/api-client";
 import { clearSession } from "@/utils/auth";
@@ -26,6 +27,7 @@ const itemVariants = {
 };
 
 export default function AdminUsersDashboard() {
+  const router = useRouter();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -44,11 +46,11 @@ export default function AdminUsersDashboard() {
   useEffect(() => {
     const role = localStorage.getItem("role");
     if (role !== "admin") {
-      window.location.href = "/";
+      router.replace("/");
     } else {
       fetchUsers();
     }
-  }, []);
+  }, [router]);
 
   const handleRoleChange = async (userId: string, newRole: string) => {
     try {
@@ -74,7 +76,7 @@ export default function AdminUsersDashboard() {
 
   const handleLogout = () => {
       clearSession();
-      window.location.href = "/";
+      router.replace("/");
   };
 
   return (

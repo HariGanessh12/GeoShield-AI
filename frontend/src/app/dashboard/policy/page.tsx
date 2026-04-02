@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { apiFetch } from "@/utils/api-client";
 import { getSessionUser } from "@/utils/auth";
@@ -15,6 +16,7 @@ type PolicyQuote = {
 };
 
 export default function PolicyDashboard() {
+  const router = useRouter();
   const [quote, setQuote] = useState<PolicyQuote | null>(null);
   const [loading, setLoading] = useState(false);
   const [purchased, setPurchased] = useState(false);
@@ -38,12 +40,12 @@ export default function PolicyDashboard() {
   useEffect(() => {
     const user = getSessionUser();
     if (user?.role !== "worker") {
-      window.location.href = "/";
+      router.replace("/");
       return;
     }
 
     void fetchQuote();
-  }, []);
+  }, [router]);
 
   const buyPolicy = async () => {
     if (!quote) return;
