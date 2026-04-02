@@ -14,6 +14,10 @@ describe('trustScore Evaluation Engine', () => {
             ok: true,
             json: async () => ({ is_anomaly: false, confidence: 0.95 })
         });
+        fetch.mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({ network_risk_level: 'LOW', ring_count: 0 })
+        });
 
         const workerProfile = { claims_history: [100, 100], reputation: 90 };
         const disruptionFactor = { type: 'HEAVY_RAIN', lossAmount: 200, location_mismatch: false };
@@ -21,7 +25,7 @@ describe('trustScore Evaluation Engine', () => {
         const result = await evaluateClaim("u1", disruptionFactor, workerProfile);
 
         expect(result.status).toBe('APPROVED');
-        expect(result.trust_score).toBe(110); // Base 100 + 10 reputation
+        expect(result.trust_score).toBe(100); // Base 100, capped after reputation bonus
     });
 
     it('should penalize and flag VERIFY for GPS mismatch', async () => {
@@ -29,6 +33,10 @@ describe('trustScore Evaluation Engine', () => {
         fetch.mockResolvedValueOnce({
             ok: true,
             json: async () => ({ is_anomaly: false, confidence: 0.90 })
+        });
+        fetch.mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({ network_risk_level: 'LOW', ring_count: 0 })
         });
 
         const workerProfile = { claims_history: [100, 100], reputation: 75 };
@@ -39,5 +47,18 @@ describe('trustScore Evaluation Engine', () => {
         expect(result.trust_score).toBe(65); // 100 base - 35 mismatch
         expect(result.status).toBe('VERIFY');
         expect(result.adjustments.some(a => a.factor === "GPS Mismatch Penalty")).toBe(true);
+    });
+
+    it('should use a local fallback when the AI service is unavailable', async () => {
+        fetch.mockRejectedValueOnce(new Error('ECONNREFUSED'));
+
+        const workerProfile = { claims_history: [100, 120], reputation: 85 };
+        const disruptionFactor = { type: 'HEAVY_RAIN', lossAmount: 200, location_mismatch: false };
+
+        const result = await evaluateClaim("u3", disruptionFactor, workerProfile);
+
+        expect(result.status).toBe('REJECTED');
+        expect(result.source).toBe('local_fallback');
+        expect(result.reasons.length).toBeGreaterThan(0);
     });
 });
