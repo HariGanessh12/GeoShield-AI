@@ -1,16 +1,34 @@
 ﻿"use client";
 
-import { useEffect } from "react";
-import { useIsHydrated, useThemePreference } from "@/utils/client-state";
+import { useEffect, useState } from "react";
 
 export default function ThemeToggle() {
-  const hydrated = useIsHydrated();
-  const isLight = useThemePreference();
+  const [mounted, setMounted] = useState(false);
+  const [isLight, setIsLight] = useState(false);
 
   useEffect(() => {
-    if (!hydrated) return;
+    const syncTheme = () => {
+      setIsLight(localStorage.getItem("geoshield_theme") === "light");
+    };
+    const frame = requestAnimationFrame(() => {
+      setMounted(true);
+      syncTheme();
+    });
+
+    window.addEventListener("storage", syncTheme);
+    window.addEventListener("focus", syncTheme);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("storage", syncTheme);
+      window.removeEventListener("focus", syncTheme);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
     document.documentElement.classList.toggle("light-mode", isLight);
-  }, [hydrated, isLight]);
+  }, [isLight, mounted]);
 
   const toggleTheme = () => {
     if (isLight) {
@@ -24,7 +42,7 @@ export default function ThemeToggle() {
     }
   };
 
-  if (!hydrated) return null;
+  if (!mounted) return null;
 
   return (
     <button

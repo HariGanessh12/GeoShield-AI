@@ -1,7 +1,7 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
-import { getSessionUser } from "@/utils/auth";
+import { useEffect, useState } from "react";
+import { getSessionUser, type SessionUser } from "@/utils/auth";
 
 function subscribe(onStoreChange: () => void) {
   if (typeof window === "undefined") return () => {};
@@ -16,29 +16,59 @@ function subscribe(onStoreChange: () => void) {
   };
 }
 
+function useMountedState() {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  return mounted;
+}
+
 export function useIsHydrated() {
-  return useSyncExternalStore(
-    subscribe,
-    () => true,
-    () => false,
-  );
+  return useMountedState();
 }
 
 export function useSessionUser() {
-  return useSyncExternalStore(
-    subscribe,
-    () => getSessionUser(),
-    () => null,
-  );
+  const mounted = useMountedState();
+  const [user, setUser] = useState<SessionUser | null>(null);
+
+  useEffect(() => {
+    if (!mounted) return;
+
+    const sync = () => setUser(getSessionUser());
+    const frame = requestAnimationFrame(sync);
+    const unsubscribe = subscribe(sync);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      unsubscribe();
+    };
+  }, [mounted]);
+
+  return mounted ? user : null;
 }
 
 export function useThemePreference() {
-  return useSyncExternalStore(
-    subscribe,
-    () => {
-      if (typeof window === "undefined") return false;
-      return localStorage.getItem("geoshield_theme") === "light";
-    },
-    () => false,
-  );
+  const mounted = useMountedState();
+  const [isLight, setIsLight] = useState(false);
+
+  useEffect(() => {
+    if (!mounted) return;
+
+    const sync = () => {
+      setIsLight(localStorage.getItem("geoshield_theme") === "light");
+    };
+    const frame = requestAnimationFrame(sync);
+    const unsubscribe = subscribe(sync);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      unsubscribe();
+    };
+  }, [mounted]);
+
+  return mounted ? isLight : false;
 }

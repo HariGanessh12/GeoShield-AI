@@ -4,8 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import ThemeToggle from "@/app/ThemeToggle";
-import { clearSession } from "@/utils/auth";
-import { useIsHydrated, useSessionUser } from "@/utils/client-state";
+import { clearSession, type SessionUser } from "@/utils/auth";
 
 type NavItem = {
   href: string;
@@ -21,12 +20,10 @@ const navItems: NavItem[] = [
   { href: "/admin", label: "Admin", adminOnly: true },
 ];
 
-export function Navbar() {
+export function Navbar({ mounted, user }: { mounted: boolean; user: SessionUser | null }) {
   const pathname = usePathname();
   const router = useRouter();
-  const hydrated = useIsHydrated();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const user = useSessionUser();
 
   const visibleItems = useMemo(
     () => navItems.filter((item) => !item.adminOnly || user?.role === "admin"),
@@ -41,7 +38,7 @@ export function Navbar() {
     router.push("/");
   };
 
-  if (!hydrated) {
+  if (!mounted) {
     return (
       <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0d0f17]/75 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/80">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">

@@ -1,7 +1,15 @@
 ﻿import type { Metadata } from "next";
 import "./globals.css";
-import { AppChrome } from "@/components/app-chrome";
+import dynamic from "next/dynamic";
 import AuthWrapper from "@/components/AuthWrapper";
+
+const AppChrome = dynamic(
+  () => import("@/components/app-chrome").then((mod) => mod.AppChrome),
+  {
+    ssr: false,
+    loading: () => <div className="min-h-screen bg-[#0d0f17]" />,
+  },
+);
 
 export const metadata: Metadata = {
   title: "GeoShield-AI",
