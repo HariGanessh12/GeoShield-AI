@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import { apiFetch } from "@/utils/api-client";
 import { getSessionUser } from "@/utils/auth";
 import { formatCurrency, formatDate, statusTone } from "@/utils/format";
@@ -25,6 +26,19 @@ type QuoteResponse = {
 };
 
 type PolicyResponse = { policy: Policy | null };
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.1 }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0 }
+};
 
 const toneClass: Record<string, string> = {
   success: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
@@ -92,8 +106,13 @@ export default function PolicyPage() {
   };
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-      <section className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-8 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70">
+    <motion.main 
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+      className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8"
+    >
+      <motion.section variants={itemVariants} className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-8 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-2xl">
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-300 light-mode:text-emerald-700">Coverage</p>
         <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -102,90 +121,93 @@ export default function PolicyPage() {
               Review your current protection window and activate a new weekly plan when needed.
             </p>
           </div>
-          <Link href="/dashboard" className="text-sm font-semibold text-sky-300 light-mode:text-sky-700">
+          <Link href="/dashboard" className="text-sm font-semibold text-sky-300 light-mode:text-sky-700 hover:underline">
             Back to dashboard
           </Link>
         </div>
-      </section>
+      </motion.section>
 
-      {error ? <div className="mt-6 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-5 py-4 text-sm text-rose-200 light-mode:text-rose-700">{error}</div> : null}
+      {error ? <motion.div variants={itemVariants} className="mt-6 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-5 py-4 text-sm text-rose-200 light-mode:text-rose-700">{error}</motion.div> : null}
 
-      <section className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70">
+      <div className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+        <motion.section variants={itemVariants} className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-xl">
           <h2 className="text-2xl font-black text-white light-mode:text-slate-900">Current status</h2>
           {loading ? (
             <div className="mt-6 rounded-2xl border border-dashed border-white/10 px-4 py-10 text-sm text-white/50 light-mode:border-black/10 light-mode:text-slate-500">
               Loading policy details...
             </div>
           ) : policy ? (
-            <div className="mt-6 space-y-4">
-              <div className={`inline-flex rounded-full border px-4 py-2 text-sm font-bold ${toneClass[statusTone(policy.status)]}`}>
+            <motion.div variants={containerVariants} className="mt-6 space-y-4">
+              <motion.div variants={itemVariants} className={`inline-flex rounded-full border px-4 py-2 text-sm font-bold ${toneClass[statusTone(policy.status)]}`}>
                 {policy.status.toUpperCase()}
-              </div>
+              </motion.div>
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-2xl border border-white/10 bg-black/20 p-5 light-mode:border-black/10 light-mode:bg-white">
+                <motion.div variants={itemVariants} className="rounded-2xl border border-white/10 bg-black/20 p-5 light-mode:border-black/10 light-mode:bg-white shadow-sm transition-transform hover:scale-[1.02]">
                   <p className="text-sm text-white/50 light-mode:text-slate-500">Coverage amount</p>
                   <p className="mt-2 text-3xl font-black text-white light-mode:text-slate-900">{formatCurrency(policy.coverageAmount)}</p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-black/20 p-5 light-mode:border-black/10 light-mode:bg-white">
+                </motion.div>
+                <motion.div variants={itemVariants} className="rounded-2xl border border-white/10 bg-black/20 p-5 light-mode:border-black/10 light-mode:bg-white shadow-sm transition-transform hover:scale-[1.02]">
                   <p className="text-sm text-white/50 light-mode:text-slate-500">Premium paid</p>
                   <p className="mt-2 text-3xl font-black text-white light-mode:text-slate-900">{formatCurrency(policy.premiumPaid)}</p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-black/20 p-5 light-mode:border-black/10 light-mode:bg-white">
+                </motion.div>
+                <motion.div variants={itemVariants} className="rounded-2xl border border-white/10 bg-black/20 p-5 light-mode:border-black/10 light-mode:bg-white shadow-sm transition-transform hover:scale-[1.02]">
                   <p className="text-sm text-white/50 light-mode:text-slate-500">Start date</p>
                   <p className="mt-2 text-lg font-bold text-white light-mode:text-slate-900">{formatDate(policy.startDate)}</p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-black/20 p-5 light-mode:border-black/10 light-mode:bg-white">
+                </motion.div>
+                <motion.div variants={itemVariants} className="rounded-2xl border border-white/10 bg-black/20 p-5 light-mode:border-black/10 light-mode:bg-white shadow-sm transition-transform hover:scale-[1.02]">
                   <p className="text-sm text-white/50 light-mode:text-slate-500">End date</p>
                   <p className="mt-2 text-lg font-bold text-white light-mode:text-slate-900">{formatDate(policy.endDate)}</p>
-                </div>
+                </motion.div>
               </div>
-            </div>
+            </motion.div>
           ) : (
             <div className="mt-6 rounded-2xl border border-dashed border-white/10 px-4 py-10 text-sm text-white/50 light-mode:border-black/10 light-mode:text-slate-500">
               No active policy found yet. You can activate one from the quote panel.
             </div>
           )}
-        </div>
+        </motion.section>
 
-        <div className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70">
+        <motion.section variants={itemVariants} className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-xl">
           <h2 className="text-2xl font-black text-white light-mode:text-slate-900">Weekly quote</h2>
           {quote ? (
-            <div className="mt-6 space-y-4">
-              <div className="rounded-3xl border border-emerald-500/20 bg-emerald-500/10 p-6 text-center">
+            <motion.div variants={containerVariants} className="mt-6 space-y-4">
+              <motion.div variants={itemVariants} className="rounded-3xl border border-emerald-500/20 bg-emerald-500/10 p-6 text-center shadow-lg">
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-300 light-mode:text-emerald-700">Premium</p>
                 <p className="mt-3 text-5xl font-black text-white light-mode:text-slate-900">{formatCurrency(quote.quote)}</p>
                 <p className="mt-2 text-sm text-white/65 light-mode:text-slate-600">Coverage up to {formatCurrency(quote.coverageAmount)}</p>
-              </div>
+              </motion.div>
               <div className="space-y-3 text-sm text-white/70 light-mode:text-slate-600">
-                <div className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3 light-mode:border-black/10">
+                <motion.div variants={itemVariants} className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3 light-mode:border-black/10 transition-colors hover:bg-white/5 light-mode:hover:bg-black/5">
                   <span>Base premium</span>
-                  <span>{formatCurrency(quote.breakdown.base)}</span>
-                </div>
-                <div className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3 light-mode:border-black/10">
+                  <span className="font-bold">{formatCurrency(quote.breakdown.base)}</span>
+                </motion.div>
+                <motion.div variants={itemVariants} className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3 light-mode:border-black/10 transition-colors hover:bg-white/5 light-mode:hover:bg-black/5">
                   <span>Zone surcharge</span>
-                  <span>+{formatCurrency(quote.breakdown.zoneSurcharge)}</span>
-                </div>
-                <div className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3 light-mode:border-black/10">
+                  <span className="font-bold">+{formatCurrency(quote.breakdown.zoneSurcharge)}</span>
+                </motion.div>
+                <motion.div variants={itemVariants} className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3 light-mode:border-black/10 transition-colors hover:bg-white/5 light-mode:hover:bg-black/5">
                   <span>Reputation discount</span>
-                  <span>-{formatCurrency(quote.breakdown.reputationDiscount)}</span>
-                </div>
+                  <span className="font-bold">-{formatCurrency(quote.breakdown.reputationDiscount)}</span>
+                </motion.div>
               </div>
-              <button
+              <motion.button
+                variants={itemVariants}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={activatePolicy}
                 disabled={activating}
-                className="w-full rounded-2xl bg-emerald-500 px-5 py-4 text-sm font-black text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full rounded-2xl bg-emerald-500 px-5 py-4 text-sm font-black text-slate-950 shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {activating ? "Activating..." : "Activate weekly policy"}
-              </button>
-            </div>
+              </motion.button>
+            </motion.div>
           ) : (
             <div className="mt-6 rounded-2xl border border-dashed border-white/10 px-4 py-10 text-sm text-white/50 light-mode:border-black/10 light-mode:text-slate-500">
               Quote unavailable right now.
             </div>
           )}
-        </div>
-      </section>
-    </main>
+        </motion.section>
+      </div>
+    </motion.main>
   );
 }

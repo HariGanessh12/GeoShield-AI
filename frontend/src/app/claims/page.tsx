@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import { apiFetch } from "@/utils/api-client";
 import { formatCurrency, statusTone } from "@/utils/format";
 
@@ -29,6 +30,19 @@ const sampleTriggers = [
   { label: "Heavy Rain", payload: { type: "HEAVY_RAIN", lossAmount: 550 } },
   { label: "Platform Outage", payload: { type: "PLATFORM_OUTAGE", lossAmount: 400 } },
 ];
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.1 }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0 }
+};
 
 const toneClass: Record<string, string> = {
   success: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
@@ -79,39 +93,45 @@ export default function ClaimsPage() {
   };
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-      <section className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-8 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70">
+    <motion.main 
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+      className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8"
+    >
+      <motion.section variants={itemVariants} className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-8 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-2xl">
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-300 light-mode:text-amber-700">Claims</p>
         <h1 className="mt-3 text-4xl font-black text-white light-mode:text-slate-900">Trigger and review claims</h1>
         <p className="mt-3 max-w-2xl text-white/65 light-mode:text-slate-600">
           Test a disruption event, then inspect the latest trust decision and payout outcome.
         </p>
-      </section>
+      </motion.section>
 
-      {message ? <div className="mt-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-4 text-sm text-emerald-200 light-mode:text-emerald-700">{message}</div> : null}
-      {error ? <div className="mt-6 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-5 py-4 text-sm text-rose-200 light-mode:text-rose-700">{error}</div> : null}
+      {message ? <motion.div variants={itemVariants} className="mt-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-4 text-sm text-emerald-200 light-mode:text-emerald-700">{message}</motion.div> : null}
+      {error ? <motion.div variants={itemVariants} className="mt-6 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-5 py-4 text-sm text-rose-200 light-mode:text-rose-700">{error}</motion.div> : null}
 
-      <section className="mt-8 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-        <div className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70">
+      <div className="mt-8 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+        <motion.section variants={itemVariants} className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-xl">
           <h2 className="text-2xl font-black text-white light-mode:text-slate-900">Trigger a sample event</h2>
-          <div className="mt-6 space-y-4">
+          <motion.div variants={containerVariants} className="mt-6 space-y-4">
             {sampleTriggers.map((item) => (
-              <button
+              <motion.button
                 key={item.label}
+                variants={itemVariants}
                 onClick={() => triggerClaim(item.label, item.payload)}
                 disabled={submitting !== null}
-                className="w-full rounded-2xl border border-white/10 bg-black/20 px-5 py-4 text-left transition hover:border-white/25 hover:bg-black/30 disabled:cursor-not-allowed disabled:opacity-60 light-mode:border-black/10 light-mode:bg-white"
+                className="w-full rounded-2xl border border-white/10 bg-black/20 px-5 py-4 text-left transition hover:border-white/25 hover:bg-black/30 hover:scale-[1.02] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 light-mode:border-black/10 light-mode:bg-white light-mode:shadow-sm"
               >
                 <div className="text-sm font-black text-white light-mode:text-slate-900">{item.label}</div>
                 <div className="mt-1 text-sm text-white/55 light-mode:text-slate-500">
                   {submitting === item.label ? "Submitting..." : `Run an automated ${item.label.toLowerCase()} claim`}
                 </div>
-              </button>
+              </motion.button>
             ))}
-          </div>
-        </div>
+          </motion.div>
+        </motion.section>
 
-        <div className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70">
+        <motion.section variants={itemVariants} className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-xl">
           <h2 className="text-2xl font-black text-white light-mode:text-slate-900">Recent claim history</h2>
           <div className="mt-6 space-y-4">
             {loading ? (
@@ -124,8 +144,14 @@ export default function ClaimsPage() {
                 No claims recorded yet.
               </div>
             ) : null}
-            {claims.map((claim) => (
-              <div key={claim._id || `${claim.trigger}-${claim.createdAt}`} className="rounded-2xl border border-white/10 bg-black/20 p-5 light-mode:border-black/10 light-mode:bg-white">
+            {claims.map((claim, idx) => (
+              <motion.div 
+                key={claim._id || `${claim.trigger}-${claim.createdAt}`}
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: idx * 0.05 }}
+                className="rounded-2xl border border-white/10 bg-black/20 p-5 light-mode:border-black/10 light-mode:bg-white shadow-sm"
+              >
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <div className="text-lg font-bold text-white light-mode:text-slate-900">{claim.trigger}</div>
@@ -148,11 +174,11 @@ export default function ClaimsPage() {
                     ))}
                   </div>
                 ) : null}
-              </div>
+              </motion.div>
             ))}
           </div>
-        </div>
-      </section>
-    </main>
+        </motion.section>
+      </div>
+    </motion.main>
   );
 }

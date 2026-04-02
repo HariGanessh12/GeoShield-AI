@@ -18,13 +18,13 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0d0f17] text-white font-sans selection:bg-indigo-500/30">
+    <div className="min-h-screen bg-[rgb(var(--background-start-rgb))] text-[rgb(var(--foreground-rgb))] font-sans selection:bg-indigo-500/30">
       <div className="fixed inset-0 overflow-hidden z-0 pointer-events-none">
-        <motion.div animate={{ scale: [1, 1.1, 1], rotate: [0, 5, 0] }} transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }} className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-600/10 blur-[120px] rounded-full"></motion.div>
-        <motion.div animate={{ scale: [1, 1.2, 1], rotate: [0, -5, 0] }} transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 1 }} className="absolute top-[20%] right-[-10%] w-[50%] h-[50%] bg-rose-900/10 blur-[120px] rounded-full"></motion.div>
+        <motion.div animate={{ scale: [1, 1.1, 1], rotate: [0, 5, 0] }} transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }} className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-600/10 blur-[120px] rounded-full light-mode:bg-indigo-600/5"></motion.div>
+        <motion.div animate={{ scale: [1, 1.2, 1], rotate: [0, -5, 0] }} transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 1 }} className="absolute top-[20%] right-[-10%] w-[50%] h-[50%] bg-rose-900/10 blur-[120px] rounded-full light-mode:bg-rose-900/5"></motion.div>
       </div>
 
-      <nav className="relative z-10 flex items-center justify-between px-8 py-6 border-b border-white/5 backdrop-blur-xl bg-[#0d0f17]/50">
+      <nav className="relative z-10 flex items-center justify-between px-8 py-6 border-b border-white/5 backdrop-blur-xl bg-[#0d0f17]/50 light-mode:border-black/5 light-mode:bg-white/50">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-500 to-orange-500 flex items-center justify-center shadow-lg shadow-rose-500/30">
             <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -32,16 +32,16 @@ export default function AdminDashboard() {
             </svg>
           </div>
           <div>
-              <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">Command Center</h1>
+              <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60 light-mode:from-slate-900 light-mode:to-slate-600">Command Center</h1>
               <p className="text-[10px] uppercase tracking-widest text-rose-400 font-bold">Admin Privileges Active</p>
           </div>
         </div>
         <div className="flex items-center gap-6">
-          <div className="hidden md:flex gap-6 mr-4 border-r border-white/10 pr-6">
-             <Link href="/admin" className="text-sm font-bold text-white transition-colors border-b-2 border-rose-500 pb-1">Dashboard</Link>
-             <Link href="/admin/users" className="text-sm font-bold text-gray-500 hover:text-gray-300 transition-colors pb-1 border-b-2 border-transparent hover:border-white/20">User Management</Link>
+          <div className="hidden md:flex gap-6 mr-4 border-r border-white/10 pr-6 light-mode:border-black/10">
+             <Link href="/admin" className="text-sm font-bold text-white transition-colors border-b-2 border-rose-500 pb-1 light-mode:text-slate-900">Dashboard</Link>
+             <Link href="/admin/users" className="text-sm font-bold text-gray-500 hover:text-gray-300 transition-colors pb-1 border-b-2 border-transparent hover:border-white/20 light-mode:text-slate-500 light-mode:hover:text-slate-900">User Management</Link>
           </div>
-          <button onClick={handleLogout} className="text-xs font-bold text-gray-400 hover:text-white transition-colors border border-white/10 hover:border-white/30 rounded-lg px-4 py-2">Sign Out</button>
+          <button onClick={handleLogout} className="text-xs font-bold text-gray-400 hover:text-white transition-colors border border-white/10 hover:border-white/30 rounded-lg px-4 py-2 light-mode:border-black/10 light-mode:text-slate-600 light-mode:hover:text-slate-900">Sign Out</button>
         </div>
       </nav>
 
@@ -56,33 +56,33 @@ export default function AdminDashboard() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.1 }}
-              className="bg-white/[0.02] border border-white/5 rounded-3xl p-6 shadow-2xl hover:bg-white/[0.04] transition-colors"
+              className="bg-white/[0.02] border border-white/5 rounded-3xl p-6 shadow-2xl hover:bg-white/[0.04] transition-colors light-mode:bg-white light-mode:border-black/5 light-mode:shadow-xl"
             >
-                <span className="text-gray-400 text-xs font-bold uppercase tracking-wider">Total Claims Processed</span>
-                <span className="block text-4xl font-black mt-2 text-white">4,291</span>
+                <span className="text-gray-400 text-xs font-bold uppercase tracking-wider light-mode:text-slate-500">Total Claims Processed</span>
+                <span className="block text-4xl font-black mt-2 text-white light-mode:text-slate-900">4,291</span>
             </motion.div>
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.2 }}
-              className="bg-rose-500/10 border border-rose-500/30 rounded-3xl p-6 shadow-2xl relative overflow-hidden"
+              className="bg-rose-500/10 border border-rose-500/30 rounded-3xl p-6 shadow-2xl relative overflow-hidden light-mode:bg-rose-50 light-mode:border-rose-200"
             >
                 <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/20 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-                <span className="text-rose-400 text-xs font-bold uppercase tracking-wider flex items-center gap-2 relative z-10">
-                    <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse shadow-[0_0_8px_rgba(251,113,133,0.8)]"></span>
+                <span className="text-rose-400 text-xs font-bold uppercase tracking-wider flex items-center gap-2 relative z-10 light-mode:text-rose-600">
+                    <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse shadow-[0_0_8px_rgba(251,113,133,0.8)] light-mode:shadow-none light-mode:bg-rose-500"></span>
                     Active Fraud Alerts
                 </span>
-                <span className="block text-4xl font-black mt-2 text-white relative z-10">124</span>
+                <span className="block text-4xl font-black mt-2 text-white relative z-10 light-mode:text-rose-700">124</span>
             </motion.div>
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.3 }}
-              className="bg-white/[0.02] border border-white/5 rounded-3xl p-6 shadow-2xl hover:bg-white/[0.04] transition-colors"
+              className="bg-white/[0.02] border border-white/5 rounded-3xl p-6 shadow-2xl hover:bg-white/[0.04] transition-colors light-mode:bg-white light-mode:border-black/5 light-mode:shadow-xl"
             >
-                <span className="text-gray-400 text-xs font-bold uppercase tracking-wider">High Risk Zones</span>
-                <span className="block text-xl font-bold mt-2 text-amber-400">Delhi NCR (Heatwave)</span>
-                <span className="block text-sm font-semibold mt-1 text-white/50">Mumbai South (Rain)</span>
+                <span className="text-gray-400 text-xs font-bold uppercase tracking-wider light-mode:text-slate-500">High Risk Zones</span>
+                <span className="block text-xl font-bold mt-2 text-amber-400 light-mode:text-amber-600">Delhi NCR (Heatwave)</span>
+                <span className="block text-sm font-semibold mt-1 text-white/50 light-mode:text-slate-400">Mumbai South (Rain)</span>
             </motion.div>
         </div>
 
@@ -91,29 +91,29 @@ export default function AdminDashboard() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
-              className="bg-white/[0.02] backdrop-blur-2xl border border-white/5 rounded-[2rem] p-8 shadow-2xl max-w-4xl hover:border-white/10 transition-colors"
+              className="bg-white/[0.02] backdrop-blur-2xl border border-white/5 rounded-[2rem] p-8 shadow-2xl max-w-4xl hover:border-white/10 transition-colors light-mode:bg-white/80 light-mode:border-black/5 light-mode:shadow-xl"
             >
-                <h3 className="text-xl font-semibold mb-6 flex items-center gap-2 border-b border-white/5 pb-4">
+                <h3 className="text-xl font-semibold mb-6 flex items-center gap-2 border-b border-white/5 pb-4 light-mode:border-black/5 light-mode:text-slate-900">
                     <svg className="w-5 h-5 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                     Network Fraud Rings Detected
                 </h3>
-                <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-6 relative overflow-hidden group">
+                <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-6 relative overflow-hidden group light-mode:bg-rose-50 light-mode:border-rose-200">
                     <div className="flex justify-between items-start mb-4">
-                        <span className="text-sm font-bold text-rose-400 uppercase tracking-widest flex items-center gap-2">
+                        <span className="text-sm font-bold text-rose-400 uppercase tracking-widest flex items-center gap-2 light-mode:text-rose-600">
                             <span className="w-2 h-2 rounded-full bg-rose-500 animate-[ping_2s_infinite]"></span>
                             Graph Clustering Attack
                         </span>
-                        <span className="px-2 py-0.5 bg-rose-500/20 text-rose-300 text-[10px] font-black rounded border border-rose-500/30 uppercase">Blocked</span>
+                        <span className="px-2 py-0.5 bg-rose-500/20 text-rose-300 text-[10px] font-black rounded border border-rose-500/30 uppercase light-mode:bg-rose-100 light-mode:text-rose-700">Blocked</span>
                     </div>
-                    <p className="text-sm text-gray-300 leading-relaxed font-medium mb-6 relative z-10">
-                        <strong className="text-white">14 users</strong> detected sharing identical device IDs across 3 states during a localized rain event. NetworkX identified strong component linkage indicating a coordinated network ring attack.
+                    <p className="text-sm text-gray-300 leading-relaxed font-medium mb-6 relative z-10 light-mode:text-slate-600">
+                        <strong className="text-white light-mode:text-slate-900">14 users</strong> detected sharing identical device IDs across 3 states during a localized rain event. NetworkX identified strong component linkage indicating a coordinated network ring attack.
                     </p>
                     <div className="flex gap-4 relative z-10">
-                        <button className="flex-1 py-2.5 rounded-xl bg-rose-500/20 text-rose-400 font-bold text-sm border border-rose-500/50 cursor-default hover:bg-rose-500/30 transition-colors shadow-inner">Nullified All (14)</button>
+                        <button className="flex-1 py-2.5 rounded-xl bg-rose-500/20 text-rose-400 font-bold text-sm border border-rose-500/50 cursor-default hover:bg-rose-500/30 transition-colors shadow-inner light-mode:bg-rose-500 light-mode:text-white light-mode:border-none light-mode:shadow-md">Nullified All (14)</button>
                         <motion.button 
                            whileHover={{ scale: 1.02 }}
                            whileTap={{ scale: 0.98 }}
-                           className="flex-1 py-2.5 rounded-xl bg-white/5 text-white/50 font-bold text-sm border border-white/10 hover:bg-white/10 hover:text-white transition-colors"
+                           className="flex-1 py-2.5 rounded-xl bg-white/5 text-white/50 font-bold text-sm border border-white/10 hover:bg-white/10 hover:text-white transition-colors light-mode:bg-slate-100 light-mode:text-slate-600 light-mode:border-black/5"
                         >
                            Inspect Nodes
                         </motion.button>

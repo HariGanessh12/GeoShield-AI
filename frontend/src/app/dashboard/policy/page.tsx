@@ -1,68 +1,73 @@
 "use client";
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { apiUrl } from '@/lib/api';
+import React, { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import { apiFetch } from "@/utils/api-client";
+import { getSessionUser } from "@/utils/auth";
+
+type PolicyQuote = {
+  quote: number;
+  coverageAmount: number;
+  breakdown: {
+    base: number;
+    zoneSurcharge: number;
+    reputationDiscount: number;
+  };
+};
 
 export default function PolicyDashboard() {
-  const [quote, setQuote] = useState<any>(null);
+  const [quote, setQuote] = useState<PolicyQuote | null>(null);
   const [loading, setLoading] = useState(false);
   const [purchased, setPurchased] = useState(false);
 
-  useEffect(() => {
-    const role = localStorage.getItem("role");
-    if (role !== "worker") {
-      window.location.href = "/";
-    } else {
-      fetchQuote();
-    }
-  }, []);
-
   const fetchQuote = async () => {
     try {
-      const token = localStorage.getItem("token");
-      if(!token) return;
-      const base64Url = token.split('.')[1];
-      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-      }).join(''));
-      const payload = JSON.parse(jsonPayload);
+      const user = getSessionUser();
+      if (!user) return;
 
-      const res = await fetch(apiUrl('/api/policy/quote'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: payload.id })
+      const data = await apiFetch<PolicyQuote>("/api/policy/quote", {
+        method: "POST",
+        body: JSON.stringify({ userId: user.id }),
       });
-      const data = await res.json();
+
       setQuote(data);
-    } catch(e) {
+    } catch (e) {
       console.error("Quote fetch error:", e);
     }
   };
 
+  useEffect(() => {
+    const user = getSessionUser();
+    if (user?.role !== "worker") {
+      window.location.href = "/";
+      return;
+    }
+
+    void fetchQuote();
+  }, []);
+
   const buyPolicy = async () => {
+    if (!quote) return;
+
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
-      if(!token) return;
-      const base64Url = token.split('.')[1];
-      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-      }).join(''));
-      const payload = JSON.parse(jsonPayload);
+      const user = getSessionUser();
+      if (!user) return;
 
-      const res = await fetch(apiUrl('/api/policy/activate'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: payload.id, premiumPaid: quote.quote, coverageAmount: quote.coverageAmount })
+      await apiFetch("/api/policy/activate", {
+        method: "POST",
+        body: JSON.stringify({
+          userId: user.id,
+          premiumPaid: quote.quote,
+          coverageAmount: quote.coverageAmount,
+        }),
       });
-      
-      if(res.ok) setPurchased(true);
-    } catch(e) {
-      console.error(e);
+
+      setPurchased(true);
+    } catch (e) {
+      console.error("Policy activation error:", e);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import ThemeToggle from "@/app/ThemeToggle";
 import { clearSession, getSessionUser } from "@/utils/auth";
 
@@ -24,15 +24,11 @@ export function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [user, setUser] = useState(getSessionUser());
-
-  useEffect(() => {
-    setUser(getSessionUser());
-  }, [pathname]);
+  const user = getSessionUser();
 
   const visibleItems = useMemo(
     () => navItems.filter((item) => !item.adminOnly || user?.role === "admin"),
-    [user?.role],
+    [user],
   );
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);

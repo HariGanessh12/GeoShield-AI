@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Define the light-mode variant for Tailwind 4 */
+@variant light-mode (&:where(.light-mode, .light-mode *));
+
 :root {
   --foreground-rgb: 255, 255, 255;
   --background-start-rgb: 13, 15, 23;
@@ -8,13 +11,20 @@
   --font-mono: "Consolas", "SFMono-Regular", "Liberation Mono", monospace;
 }
 
+/* Light mode base overrides */
+.light-mode {
+  --foreground-rgb: 15, 23, 42;
+  --background-start-rgb: 245, 247, 251;
+  --background-end-rgb: 255, 255, 255;
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;
   }
   body {
-    background-color: #0d0f17;
-    color: #ffffff;
+    background-color: rgb(var(--background-start-rgb));
+    color: rgb(var(--foreground-rgb));
     font-family: var(--font-sans);
     font-feature-settings: "rlig" 1, "calt" 1;
     -webkit-font-smoothing: antialiased;

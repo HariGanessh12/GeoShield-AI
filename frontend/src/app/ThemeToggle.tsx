@@ -3,17 +3,14 @@
 import { useEffect, useState } from "react";
 
 export default function ThemeToggle() {
-  const [isLight, setIsLight] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const [isLight, setIsLight] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("geoshield_theme") === "light";
+  });
 
   useEffect(() => {
-    setMounted(true);
-    const savedTheme = localStorage.getItem("geoshield_theme");
-    if (savedTheme === "light") {
-      setIsLight(true);
-      document.documentElement.classList.add("light-mode");
-    }
-  }, []);
+    document.documentElement.classList.toggle("light-mode", isLight);
+  }, [isLight]);
 
   const toggleTheme = () => {
     if (isLight) {
@@ -26,8 +23,6 @@ export default function ThemeToggle() {
       setIsLight(true);
     }
   };
-
-  if (!mounted) return null;
 
   return (
     <button

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import { apiFetch } from "@/utils/api-client";
 import { getSessionUser } from "@/utils/auth";
 import { formatCurrency } from "@/utils/format";
@@ -19,6 +20,19 @@ type PremiumResponse = {
   expected_loss_inr: number;
   risk_margin_inr: number;
   platform_fee_inr: number;
+};
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.1 }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0 }
 };
 
 const zoneInputs: Record<string, { weather: number; traffic: number; location: number }> = {
@@ -70,19 +84,24 @@ export default function RiskPage() {
   }, []);
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-      <section className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-8 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70">
+    <motion.main 
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+      className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8"
+    >
+      <motion.section variants={itemVariants} className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-8 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-2xl">
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-sky-300 light-mode:text-sky-700">Risk engine</p>
         <h1 className="mt-3 text-4xl font-black text-white light-mode:text-slate-900">Risk and premium breakdown</h1>
         <p className="mt-3 max-w-2xl text-white/65 light-mode:text-slate-600">
           Live zone signals and premium components for <span className="font-bold text-white light-mode:text-slate-900">{zone}</span>.
         </p>
-      </section>
+      </motion.section>
 
-      {error ? <div className="mt-6 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-5 py-4 text-sm text-rose-200 light-mode:text-rose-700">{error}</div> : null}
+      {error ? <motion.div variants={itemVariants} className="mt-6 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-5 py-4 text-sm text-rose-200 light-mode:text-rose-700">{error}</motion.div> : null}
 
-      <section className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70">
+      <div className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+        <motion.section variants={itemVariants} className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-xl">
           <h2 className="text-2xl font-black text-white light-mode:text-slate-900">Zone signals</h2>
           <div className="mt-6 space-y-4">
             {loading ? (
@@ -92,7 +111,13 @@ export default function RiskPage() {
             ) : null}
             {!loading &&
               risk.map((item, index) => (
-                <div key={`${item.risk_level}-${index}`} className="rounded-2xl border border-white/10 bg-black/20 p-5 light-mode:border-black/10 light-mode:bg-white">
+                <motion.div 
+                  key={`${item.risk_level}-${index}`}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className="rounded-2xl border border-white/10 bg-black/20 p-5 light-mode:border-black/10 light-mode:bg-white shadow-sm transition-colors hover:bg-black/30 light-mode:hover:bg-slate-50"
+                >
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-lg font-bold text-white light-mode:text-slate-900">{item.risk_level}</div>
                     <div className="text-xs text-white/50 light-mode:text-slate-500">
@@ -100,41 +125,41 @@ export default function RiskPage() {
                     </div>
                   </div>
                   <p className="mt-3 text-sm text-white/65 light-mode:text-slate-600">{item.reason}</p>
-                </div>
+                </motion.div>
               ))}
           </div>
-        </div>
+        </motion.section>
 
-        <div className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70">
+        <motion.section variants={itemVariants} className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-xl">
           <h2 className="text-2xl font-black text-white light-mode:text-slate-900">Premium model</h2>
           {premium ? (
-            <div className="mt-6 space-y-4">
-              <div className="rounded-3xl border border-indigo-500/20 bg-indigo-500/10 p-6 text-center">
+            <motion.div variants={containerVariants} className="mt-6 space-y-4">
+              <motion.div variants={itemVariants} className="rounded-3xl border border-indigo-500/20 bg-indigo-500/10 p-6 text-center shadow-lg">
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-indigo-300 light-mode:text-indigo-700">Weekly premium</p>
                 <p className="mt-3 text-5xl font-black text-white light-mode:text-slate-900">{formatCurrency(premium.weekly_premium_inr)}</p>
-              </div>
+              </motion.div>
               <div className="space-y-3 text-sm text-white/70 light-mode:text-slate-600">
-                <div className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3 light-mode:border-black/10">
+                <motion.div variants={itemVariants} className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3 light-mode:border-black/10 transition-colors hover:bg-white/5 light-mode:hover:bg-black/5">
                   <span>Expected loss</span>
-                  <span>{formatCurrency(premium.expected_loss_inr)}</span>
-                </div>
-                <div className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3 light-mode:border-black/10">
+                  <span className="font-bold">{formatCurrency(premium.expected_loss_inr)}</span>
+                </motion.div>
+                <motion.div variants={itemVariants} className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3 light-mode:border-black/10 transition-colors hover:bg-white/5 light-mode:hover:bg-black/5">
                   <span>Risk margin</span>
-                  <span>{formatCurrency(premium.risk_margin_inr)}</span>
-                </div>
-                <div className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3 light-mode:border-black/10">
+                  <span className="font-bold">{formatCurrency(premium.risk_margin_inr)}</span>
+                </motion.div>
+                <motion.div variants={itemVariants} className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3 light-mode:border-black/10 transition-colors hover:bg-white/5 light-mode:hover:bg-black/5">
                   <span>Platform fee</span>
-                  <span>{formatCurrency(premium.platform_fee_inr)}</span>
-                </div>
+                  <span className="font-bold">{formatCurrency(premium.platform_fee_inr)}</span>
+                </motion.div>
               </div>
-            </div>
+            </motion.div>
           ) : (
             <div className="mt-6 rounded-2xl border border-dashed border-white/10 px-4 py-10 text-sm text-white/50 light-mode:border-black/10 light-mode:text-slate-500">
               Premium data unavailable right now.
             </div>
           )}
-        </div>
-      </section>
-    </main>
+        </motion.section>
+      </div>
+    </motion.main>
   );
 }

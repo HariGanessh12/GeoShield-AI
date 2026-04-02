@@ -57,7 +57,15 @@ export default function RegisterPage() {
             <option value="Bangalore Central">Bangalore Central</option>
           </select>
           {error ? <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200 light-mode:text-rose-700">{error}</div> : null}
-          <button type="submit" disabled={loading} className="w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 py-4 font-bold text-white shadow-lg shadow-emerald-500/20 disabled:opacity-50">{loading ? "Creating account..." : "Register"}</button>
+          <motion.button 
+            type="submit" 
+            disabled={loading} 
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 py-4 font-bold text-white shadow-lg shadow-emerald-500/20 disabled:opacity-50 transition-shadow hover:shadow-emerald-500/40"
+          >
+            {loading ? "Creating account..." : "Register"}
+          </motion.button>
         </form>
         <div className="mt-6 text-center text-sm text-white/55 light-mode:text-slate-500">
           <Link href="/" className="font-bold text-emerald-300 light-mode:text-emerald-600">Back to login</Link>
