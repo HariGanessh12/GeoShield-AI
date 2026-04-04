@@ -71,13 +71,6 @@ export default function RiskPage() {
     }
   `;
 
-  const getZoneName = (lat: number | undefined, lng: number | undefined, index: number) => {
-    if (!lat || !lng) return `Zone ${index + 1}`;
-    if (lat.toFixed(2) === "28.70" && lng.toFixed(2) === "77.10") return "Delhi NCR";
-    if (lat.toFixed(2) === "19.08" && lng.toFixed(2) === "72.88") return "Mumbai";
-    return `Zone ${index + 1}`;
-  };
-
   useEffect(() => {
     const user = getSessionUser();
     const selectedZone = user?.zone || "Delhi NCR";

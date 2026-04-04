@@ -73,7 +73,7 @@ export function Navbar({ user }: { user: SessionUser | null }) {
         ) : (
           <>
             <Link href="/dashboard" className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-sky-500 to-emerald-400 shadow-lg shadow-indigo-500/30">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-linear-to-br from-indigo-500 via-sky-500 to-emerald-400 shadow-lg shadow-indigo-500/30">
                 <span className="text-sm font-black text-white">GS</span>
               </div>
               <div>
