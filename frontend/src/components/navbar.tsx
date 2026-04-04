@@ -48,6 +48,9 @@ export function Navbar({ user }: { user: SessionUser | null }) {
         {isLoggedOut ? (
           <>
             <div className="flex items-center gap-2">
+              <Link href="/" className="rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-white/75 transition hover:border-white/30 hover:text-white light-mode:border-black/10 light-mode:text-slate-600 light-mode:hover:border-black/20 light-mode:hover:text-slate-900">
+                Home
+              </Link>
               {showPublicAuthLinks ? (
                 <>
                   <Link href="/login" className="rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-white/75 transition hover:border-white/30 hover:text-white light-mode:border-black/10 light-mode:text-slate-600 light-mode:hover:border-black/20 light-mode:hover:text-slate-900">
