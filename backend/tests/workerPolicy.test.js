@@ -61,6 +61,43 @@ function mockSortHelper(items, comparator) {
     return [...items].sort(comparator);
 }
 
+function mockFilterLogs(query = {}) {
+    let items = [...mockState.toggles];
+
+    if (query.workerId) {
+        items = items.filter((item) => String(item.workerId) === String(query.workerId));
+    }
+
+    const createdAt = query.createdAt || {};
+    if (createdAt.$gte) {
+        const lowerBound = new Date(createdAt.$gte);
+        items = items.filter((item) => new Date(item.createdAt) >= lowerBound);
+    }
+    if (createdAt.$gt) {
+        const lowerBound = new Date(createdAt.$gt);
+        items = items.filter((item) => new Date(item.createdAt) > lowerBound);
+    }
+    if (createdAt.$lt) {
+        const upperBound = new Date(createdAt.$lt);
+        items = items.filter((item) => new Date(item.createdAt) < upperBound);
+    }
+    if (createdAt.$lte) {
+        const upperBound = new Date(createdAt.$lte);
+        items = items.filter((item) => new Date(item.createdAt) <= upperBound);
+    }
+
+    return items;
+}
+
+function mockSortLogs(items, sortSpec = { createdAt: 1 }, limit = null) {
+    const [field, direction] = Object.entries(sortSpec)[0] || ['createdAt', 1];
+    const sorted = [...items].sort((a, b) => {
+        const delta = new Date(a[field]).getTime() - new Date(b[field]).getTime();
+        return direction === -1 ? -delta : delta;
+    });
+    return typeof limit === 'number' ? sorted.slice(0, limit) : sorted;
+}
+
 jest.mock('../models/user', () => ({
     findById: jest.fn(() => ({
         lean: jest.fn(async () => mockState.user)
@@ -85,11 +122,12 @@ jest.mock('../models/policyToggleLog', () => ({
     findOne: jest.fn(() => ({
             sort: jest.fn(() => Promise.resolve(mockState.toggles[0] || null))
     })),
-    find: jest.fn(() => ({
-        sort: jest.fn(() => ({
-            limit: jest.fn(() => ({
-                lean: jest.fn(async () => mockSortHelper(mockState.toggles, (a, b) => new Date(b.createdAt) - new Date(a.createdAt)))
-                }))
+    find: jest.fn((query = {}) => ({
+        sort: jest.fn((sortSpec = { createdAt: 1 }) => ({
+            lean: jest.fn(async () => mockSortLogs(mockFilterLogs(query), sortSpec)),
+            limit: jest.fn((limit = 20) => ({
+                lean: jest.fn(async () => mockSortLogs(mockFilterLogs(query), sortSpec, limit))
+            }))
         }))
     })),
     create: jest.fn(async (doc) => {
@@ -237,6 +275,37 @@ describe('worker policy micro-policy routes', () => {
         expect(response.body.data.history).toHaveLength(2);
         expect(response.body.data.history[0]).toMatchObject({ currentState: 'OFF', reason: 'shift_ended' });
         expect(response.body.data.history[1]).toMatchObject({ currentState: 'ON', reason: 'shift_started' });
+    });
+
+    // This covers the business case where a worker leaves coverage on too long and the platform must automatically pause it to prevent accidental overbilling.
+    it('auto-shuts off coverage after more than 12 continuous hours and logs the pause', async () => {
+        const thirteenHoursAgo = new Date(Date.now() - 13 * 60 * 60 * 1000);
+        mockState.policy.shiftState = 'ON';
+        mockState.policy.lastToggledAt = thirteenHoursAgo;
+        mockState.toggles = [
+            {
+                _id: 'toggle-1',
+                workerId,
+                previousState: 'OFF',
+                currentState: 'ON',
+                reason: 'shift_started',
+                source: 'web_app',
+                createdAt: thirteenHoursAgo
+            }
+        ];
+
+        const response = await request(app)
+            .get(`/api/worker/${workerId}/summary`)
+            .set('Authorization', 'Bearer demo-token');
+
+        expect(response.status).toBe(200);
+        expect(envelope(response).success).toBe(true);
+        expect(response.body.data.autoShutoffApplied).toBe(true);
+        expect(response.body.data.shiftState).toBe('OFF');
+        expect(response.body.data.recentToggles[0]).toMatchObject({
+            currentState: 'OFF',
+            reason: expect.stringContaining('auto-shutoff')
+        });
     });
 
     // This covers the business case where someone tries to hit protected worker controls without a valid session.

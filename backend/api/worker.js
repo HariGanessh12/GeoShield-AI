@@ -6,6 +6,7 @@ const PolicyToggleLog = require('../models/policyToggleLog');
 const Claim = require('../models/claim');
 const { sendSuccess, sendError } = require('../utils/http');
 const { createValidator, validators } = require('../utils/validation');
+const { buildPolicySummary, checkAndApplyAutoShutoff, loadPolicyAndLogs } = require('../services/policyEngine');
 
 function canAccessWorker(req, workerId) {
     if (!req.user) return false;
@@ -17,13 +18,7 @@ function normalizeState(value) {
 }
 
 async function loadCurrentState(workerId) {
-    const policy = await Policy.findOne({ workerId }).sort({ createdAt: -1 });
-    const latestLog = await PolicyToggleLog.findOne({ workerId }).sort({ createdAt: -1 });
-    return {
-        policy,
-        latestLog,
-        currentState: latestLog?.currentState || policy?.shiftState || 'OFF'
-    };
+    return loadPolicyAndLogs(workerId);
 }
 
 router.get('/:id/summary', createValidator([
@@ -34,6 +29,8 @@ router.get('/:id/summary', createValidator([
         if (!canAccessWorker(req, id)) {
             return sendError(res, 403, 'Access denied for this worker profile');
         }
+
+        const autoShutoffState = await checkAndApplyAutoShutoff(id);
 
         const [user, policyState, recentClaims, recentToggles] = await Promise.all([
             User.findById(id, '-password').lean(),
@@ -51,7 +48,8 @@ router.get('/:id/summary', createValidator([
             currentPolicy: policyState.policy,
             shiftState: policyState.currentState,
             recentClaims,
-            recentToggles
+            recentToggles,
+            autoShutoffApplied: Boolean(autoShutoffState.autoShutoffApplied)
         });
     } catch (error) {
         console.error('Worker summary error:', error);
@@ -71,13 +69,15 @@ router.post('/:id/policy/toggle', createValidator([
             return sendError(res, 403, 'Access denied for this worker policy');
         }
 
+        const shutoffState = await checkAndApplyAutoShutoff(id);
+
         const user = await User.findById(id).lean();
         if (!user) {
             return sendError(res, 404, 'Worker not found');
         }
 
         const now = new Date();
-        let policy = await Policy.findOne({ workerId: id }).sort({ createdAt: -1 });
+        let policy = shutoffState.policy || await Policy.findOne({ workerId: id }).sort({ createdAt: -1 });
 
         if (!policy) {
             policy = await Policy.create({
@@ -125,7 +125,8 @@ router.post('/:id/policy/toggle', createValidator([
                 toggleCount: policy.toggleCount,
                 lastToggledAt: policy.lastToggledAt
             },
-            toggle: log
+            toggle: log,
+            autoShutoffApplied: Boolean(shutoffState.autoShutoffApplied)
         });
     } catch (error) {
         console.error('Policy toggle error:', error);
@@ -156,6 +157,23 @@ router.get('/:id/policy/history', createValidator([
     } catch (error) {
         console.error('Policy history error:', error);
         return sendError(res, 500, 'Could not load policy history');
+    }
+});
+
+router.get('/:id/policy/summary', createValidator([
+    { source: 'params', field: 'id', check: validators.objectId('id') }
+]), async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!canAccessWorker(req, id)) {
+            return sendError(res, 403, 'Access denied for this worker policy summary');
+        }
+
+        const summary = await buildPolicySummary(id);
+        return sendSuccess(res, summary);
+    } catch (error) {
+        console.error('Policy summary error:', error);
+        return sendError(res, 500, 'Could not load policy summary');
     }
 });
 

@@ -11,11 +11,21 @@ import { normalizePremiumResponse, type PremiumResponse } from "@/utils/risk";
 type Claim = { _id?: string; trigger: string; trustScore: number; status: string; payout: number; reasons?: string[]; createdAt: string };
 type PolicyResponse = { policy: { status: string; coverageAmount: number; premiumPaid: number; endDate: string } | null };
 type ZoneRiskResponse = { zones: Array<{ risk_level: string; reason: string }> };
+type PolicySummaryResponse = {
+  activeCoverageHours: number;
+  estimatedMonthlySaving: number;
+  fullCoverageMonthlyCost: number;
+  microPolicyMonthlyCost: number;
+  coverageEfficiencyPercent: number;
+  currentState?: "ON" | "OFF";
+  autoShutoffApplied?: boolean;
+};
 type WorkerSummaryResponse = {
   profile: { _id: string; email: string; zone?: string; reputationScore?: number } | null;
   currentPolicy: { shiftState?: "ON" | "OFF"; status?: string; premiumPaid?: number; coverageAmount?: number; toggleCount?: number } | null;
   shiftState: "ON" | "OFF";
   recentToggles: Array<{ previousState: "ON" | "OFF"; currentState: "ON" | "OFF"; reason?: string; source?: string; createdAt: string }>;
+  autoShutoffApplied?: boolean;
 };
 const zoneInputs: Record<string, { weather: number; traffic: number; location: number }> = {
   "Delhi NCR": { weather: 72, traffic: 80, location: 68 },
@@ -63,11 +73,14 @@ export default function DashboardPage() {
   const [claims, setClaims] = useState<Claim[]>([]);
   const [policy, setPolicy] = useState<PolicyResponse["policy"]>(null);
   const [premium, setPremium] = useState<PremiumResponse | null>(null);
+  const [policySummary, setPolicySummary] = useState<PolicySummaryResponse | null>(null);
   const [risk, setRisk] = useState({ label: "Loading", reason: "Fetching live zone signal" });
   const [policyToggleState, setPolicyToggleState] = useState<"ON" | "OFF">("OFF");
   const [policyHistory, setPolicyHistory] = useState<WorkerSummaryResponse["recentToggles"]>([]);
   const [toggleLoading, setToggleLoading] = useState(false);
   const [toggleError, setToggleError] = useState("");
+  const [autoShutoffWarning, setAutoShutoffWarning] = useState("");
+  const [warningDismissed, setWarningDismissed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -76,36 +89,58 @@ export default function DashboardPage() {
     return () => cancelAnimationFrame(frame);
   }, []);
 
-  useEffect(() => {
-    if (!mounted) return;
+  const loadDashboardData = async ({ showLoading = true }: { showLoading?: boolean } = {}) => {
     const user = getSessionUser();
     if (!user) return;
-    const load = async () => {
-      setLoading(true);
-      setError("");
-      setToggleError("");
-      try {
-        const inputs = zoneInputs[user.zone || "Delhi NCR"] || zoneInputs["Delhi NCR"];
-        const [claimsData, policyData, riskData, premiumData] = await Promise.all([
-          apiFetch<Claim[]>("/api/claim/history"),
-          apiFetch<PolicyResponse>("/api/policy/current"),
-          apiFetch<ZoneRiskResponse>("/api/risk/zone-risk"),
-          apiFetch<Record<string, unknown>>("/api/risk/premium-breakdown", { method: "POST", body: JSON.stringify({ weather: inputs.weather, traffic: inputs.traffic, location: inputs.location, persona_type: "FOOD_DELIVERY" }) }),
-        ]);
-        const workerData = await apiFetch<WorkerSummaryResponse>(`/api/worker/${user.id}/summary`);
-        setClaims(claimsData);
-        setPolicy(policyData.policy);
-        setPremium(normalizePremiumResponse(premiumData));
-        setRisk({ label: riskData.zones[0]?.risk_level || "MEDIUM", reason: riskData.zones[0]?.reason || "No live risk reason returned" });
-        setPolicyToggleState(workerData.shiftState || workerData.currentPolicy?.shiftState || "OFF");
-        setPolicyHistory(workerData.recentToggles.slice(0, 3));
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not load dashboard");
-      } finally {
-        setLoading(false);
+
+    if (showLoading) setLoading(true);
+    setError("");
+    setToggleError("");
+    try {
+      const inputs = zoneInputs[user.zone || "Delhi NCR"] || zoneInputs["Delhi NCR"];
+      const [claimsData, policyData, riskData, premiumData] = await Promise.all([
+        apiFetch<Claim[]>("/api/claim/history"),
+        apiFetch<PolicyResponse>("/api/policy/current"),
+        apiFetch<ZoneRiskResponse>("/api/risk/zone-risk"),
+        apiFetch<Record<string, unknown>>("/api/risk/premium-breakdown", {
+          method: "POST",
+          body: JSON.stringify({
+            weather: inputs.weather,
+            traffic: inputs.traffic,
+            location: inputs.location,
+            persona_type: "FOOD_DELIVERY"
+          })
+        }),
+      ]);
+      const workerData = await apiFetch<WorkerSummaryResponse>(`/api/worker/${user.id}/summary`);
+      const policySummaryData = await apiFetch<PolicySummaryResponse>(`/api/worker/${user.id}/policy/summary`);
+
+      setClaims(claimsData);
+      setPolicy(policyData.policy);
+      setPremium(normalizePremiumResponse(premiumData));
+      setRisk({ label: riskData.zones[0]?.risk_level || "MEDIUM", reason: riskData.zones[0]?.reason || "No live risk reason returned" });
+      setPolicyToggleState(workerData.shiftState || workerData.currentPolicy?.shiftState || "OFF");
+      setPolicyHistory(workerData.recentToggles.slice(0, 3));
+      setPolicySummary(policySummaryData);
+
+      const latestReason = workerData.recentToggles[0]?.reason || "";
+      if (latestReason.toLowerCase().includes("auto-shutoff")) {
+        setAutoShutoffWarning("Your coverage was automatically paused after 12 hours. Toggle ON when you're back on shift.");
+        setWarningDismissed(false);
+      } else {
+        setAutoShutoffWarning("");
+        setWarningDismissed(false);
       }
-    };
-    void load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load dashboard");
+    } finally {
+      if (showLoading) setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!mounted) return;
+    void loadDashboardData();
   }, [mounted]);
 
   if (!mounted) return null;
@@ -129,6 +164,7 @@ export default function DashboardPage() {
 
       setPolicyToggleState(result.policy.shiftState || nextState);
       setPolicyHistory((current) => [result.toggle, ...current].slice(0, 3));
+      await loadDashboardData({ showLoading: false });
     } catch (err) {
       setToggleError(err instanceof Error ? err.message : "Could not update policy");
     } finally {
@@ -157,6 +193,20 @@ export default function DashboardPage() {
       </motion.section>
 
       {error ? <motion.div variants={itemVariants} className="mb-6 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-5 py-4 text-sm text-rose-200 light-mode:text-rose-700">{error}</motion.div> : null}
+      {autoShutoffWarning && !warningDismissed ? (
+        <motion.div variants={itemVariants} className="mb-6 flex items-start justify-between gap-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-5 py-4 text-amber-100 light-mode:text-amber-700">
+          <div>
+            <p className="text-sm font-bold">Auto-pause notice</p>
+            <p className="mt-1 text-sm opacity-90">{autoShutoffWarning}</p>
+          </div>
+          <button
+            onClick={() => setWarningDismissed(true)}
+            className="rounded-full border border-amber-500/30 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-amber-100 transition hover:bg-amber-500/15 light-mode:text-amber-700"
+          >
+            Dismiss
+          </button>
+        </motion.div>
+      ) : null}
 
       <motion.section variants={containerVariants} className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
         <motion.div variants={itemVariants} className={`rounded-[1.75rem] border p-6 shadow-lg transition-transform hover:scale-[1.02] ${toneClass[statusTone(policy?.status || "REJECTED")]}`}>
@@ -234,6 +284,18 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between"><span>Expected loss</span><span className="font-bold">{formatCurrency(premium?.expected_loss_inr)}</span></div>
               <div className="flex items-center justify-between"><span>Risk margin</span><span className="font-bold">{formatCurrency(premium?.risk_margin_inr)}</span></div>
               <div className="flex items-center justify-between"><span>Platform fee</span><span className="font-bold">{formatCurrency(premium?.platform_fee_inr)}</span></div>
+            </div>
+          </motion.div>
+
+          <motion.div variants={itemVariants} className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-xl">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-300 light-mode:text-cyan-700">Why micro-policy?</p>
+            <h3 className="mt-3 text-2xl font-black text-white light-mode:text-slate-900">You&apos;re only paying for the hours you actually work.</h3>
+            <div className="mt-4 space-y-3 text-sm text-white/70 light-mode:text-slate-600">
+              <div className="flex items-center justify-between"><span>Active coverage hours</span><span className="font-bold">{policySummary?.activeCoverageHours ?? 0}h</span></div>
+              <div className="flex items-center justify-between"><span>Full coverage monthly cost</span><span className="font-bold">{formatCurrency(policySummary?.fullCoverageMonthlyCost)}</span></div>
+              <div className="flex items-center justify-between"><span>Micro-policy monthly cost</span><span className="font-bold">{formatCurrency(policySummary?.microPolicyMonthlyCost)}</span></div>
+              <div className="flex items-center justify-between"><span>Estimated monthly saving</span><span className="font-bold text-emerald-300 light-mode:text-emerald-700">{formatCurrency(policySummary?.estimatedMonthlySaving)}</span></div>
+              <div className="flex items-center justify-between"><span>Coverage efficiency</span><span className="font-bold">{policySummary?.coverageEfficiencyPercent ?? 0}%</span></div>
             </div>
           </motion.div>
 
