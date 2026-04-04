@@ -151,6 +151,35 @@ router.post('/auto-trigger', async (req, res) => {
         });
     } catch (error) {
         console.error("Auto trigger exception:", error);
+        try {
+            const workerId = getWorkerId(req);
+            const disruptionFactor = req.body && req.body.disruptionFactor;
+            const fallbackProfile = {
+                reputation: 85,
+                claims_history: [100, 120]
+            };
+
+            if (workerId && disruptionFactor && typeof disruptionFactor === 'object' && disruptionFactor.type) {
+                const fallbackDecision = typeof trustScoreService.buildLocalFallbackDecision === 'function'
+                    ? trustScoreService.buildLocalFallbackDecision(workerId, disruptionFactor, fallbackProfile)
+                    : {
+                        status: 'REJECTED',
+                        trust_score: 50,
+                        reasons: ['Emergency fallback used because claim generation failed'],
+                        adjustments: [],
+                        aiConfidence: 0.5,
+                        source: 'emergency_fallback'
+                    };
+
+                return res.status(200).json({
+                    message: "Claim processing completed with local fallback",
+                    decision: fallbackDecision
+                });
+            }
+        } catch (fallbackError) {
+            console.error("Emergency fallback also failed:", fallbackError);
+        }
+
         res.status(500).json({ error: "Internal server error during claim generation." });
     }
 });
