@@ -50,13 +50,39 @@ const activeAlerts = [
 ];
 
 function buildPdfBlob(lines: string[]) {
-  const escapedLines = lines.map((line) => line.replace(/[()]/g, "\\$&"));
+  const escapePdfText = (value: string) => value.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+  const wrapLine = (value: string, maxLength = 58) => {
+    const words = value.split(/\s+/);
+    const wrapped: string[] = [];
+    let current = "";
+
+    for (const word of words) {
+      const candidate = current ? `${current} ${word}` : word;
+      if (candidate.length > maxLength && current) {
+        wrapped.push(current);
+        current = word;
+      } else {
+        current = candidate;
+      }
+    }
+
+    if (current) wrapped.push(current);
+    return wrapped.length > 0 ? wrapped : [value];
+  };
+
+  const reportLines = [
+    lines[0] || "GeoShield AI Demo Report",
+    ...lines.slice(1),
+  ]
+    .flatMap((line) => wrapLine(line))
+    .map(escapePdfText);
+
   const contentStream = [
     "BT",
-    "/F1 18 Tf",
+    "/F1 16 Tf",
+    "20 TL",
     "48 780 Td",
-    `(${escapedLines[0] || "GeoShield AI Demo Report"}) Tj`,
-    ...escapedLines.slice(1).flatMap((line) => ["T*", `(${line}) Tj`]),
+    ...reportLines.map((line, index) => (index === 0 ? `(${line}) Tj` : `T* (${line}) Tj`)),
     "ET",
   ].join("\n");
   const objects: string[] = [];
