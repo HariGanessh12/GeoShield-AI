@@ -27,6 +27,7 @@ const apiLimiter = rateLimit({
 app.use('/api', apiLimiter);
 
 // Basic status route
+app.get('/', (req, res) => res.json({ status: 'GeoShield-AI API operational' }));
 app.get('/health', (req, res) => res.json({ status: 'GeoShield-AI Platform Operational' }));
 
 // Feature Routers (Public)
