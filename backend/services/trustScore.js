@@ -1,11 +1,12 @@
 const AI_ENGINE_BASE_URL = process.env.AI_ENGINE_BASE_URL || (process.env.NODE_ENV === 'production' ? "" : "http://localhost:8001");
 
 function buildClaimPayload(workerId, disruptionFactor, userProfile) {
+    const history = Array.isArray(userProfile.claims_history) ? userProfile.claims_history : [];
     return {
-        history: userProfile.claims_history || [100, 150, 100],
+        history,
         current: disruptionFactor.lossAmount || 200,
-        graphNodes: ["u1", "u2", "u3", "u4", workerId],
-        graphEdges: [["u1", "u2"], ["u2", "u3"], ["u3", workerId]]
+        graphNodes: ["device-1", "ip-1", "geo-1", workerId],
+        graphEdges: [["device-1", "ip-1"]]
     };
 }
 

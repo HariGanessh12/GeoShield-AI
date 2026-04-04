@@ -57,8 +57,21 @@ describe('trustScore Evaluation Engine', () => {
 
         const result = await evaluateClaim("u3", disruptionFactor, workerProfile);
 
-        expect(result.status).toBe('REJECTED');
+        expect(result.status).toBe('VERIFY');
         expect(result.source).toBe('local_fallback');
         expect(result.reasons.length).toBeGreaterThan(0);
+    });
+
+    it('should approve a clean fallback claim when there is no prior history', async () => {
+        fetch.mockRejectedValueOnce(new Error('ECONNREFUSED'));
+
+        const workerProfile = { claims_history: [], reputation: 85 };
+        const disruptionFactor = { type: 'PLATFORM_OUTAGE', lossAmount: 400, location_mismatch: false };
+
+        const result = await evaluateClaim("u4", disruptionFactor, workerProfile);
+
+        expect(result.status).toBe('APPROVED');
+        expect(result.trust_score).toBe(100);
+        expect(result.source).toBe('local_fallback');
     });
 });

@@ -66,9 +66,22 @@ router.post('/auto-trigger', async (req, res) => {
             zone: 'Delhi NCR',
             reputationScore: 85,
             personaType: 'FOOD_DELIVERY',
-            claims_history: [100, 120],
             _id: workerId
         };
+
+        const recentClaims = await Claim.find({ workerId })
+            .sort({ createdAt: -1 })
+            .limit(10)
+            .select('claimAmount payout')
+            .lean()
+            .catch((err) => {
+                console.warn("Claim history lookup failed, continuing without history:", err.message);
+                return [];
+            });
+
+        const claimsHistory = recentClaims
+            .map((claim) => Number.isFinite(Number(claim.claimAmount)) ? Number(claim.claimAmount) : Number(claim.payout))
+            .filter((amount) => Number.isFinite(amount) && amount > 0);
 
         // 🛡️ INSURANCE ELIGIBILITY CHECK
         const activePolicy = normalizePolicy(await Policy.findOne({ workerId, status: 'active' }).lean().catch((err) => {
@@ -88,7 +101,7 @@ router.post('/auto-trigger', async (req, res) => {
         const externalData = await externalDataService.getExternalData(disruptionFactor.type, user.zone);
         disruptionFactor.severity = externalData.severityScore;
 
-        const profile = { reputation: user.reputationScore || 85, claims_history: [100, 120] };
+        const profile = { reputation: user.reputationScore || 85, claims_history: claimsHistory };
         
         // Base rule check
         if (disruptionFactor.severity < 0.5 && disruptionFactor.type !== 'PLATFORM_OUTAGE') {
@@ -102,6 +115,7 @@ router.post('/auto-trigger', async (req, res) => {
             await Claim.create({
                 workerId: workerId,
                 trigger: disruptionFactor.type,
+                claimAmount: disruptionFactor.lossAmount || 0,
                 trustScore: decision.trust_score,
                 status: decision.status,
                 payout: decision.payout,
@@ -135,6 +149,7 @@ router.post('/auto-trigger', async (req, res) => {
             await Claim.create({
                 workerId: workerId,
                 trigger: disruptionFactor.type,
+                claimAmount: disruptionFactor.lossAmount || 0,
                 trustScore: claimDecision.trust_score,
                 status: claimDecision.status,
                 payout: payoutAmount,

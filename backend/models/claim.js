@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const ClaimSchema = new mongoose.Schema({
     workerId: { type: String, required: true },
     trigger: { type: String },
+    claimAmount: { type: Number },
     trustScore: { type: Number },
     status: { type: String },
     payout: { type: Number },
