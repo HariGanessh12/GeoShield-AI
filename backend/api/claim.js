@@ -14,6 +14,22 @@ function getWorkerId(req) {
     return mongoose.Types.ObjectId.isValid(workerId) ? workerId : null;
 }
 
+function normalizePolicy(policy) {
+    const fallbackCoveredEvents = ['HEAVY_RAIN', 'HEATWAVE', 'PLATFORM_OUTAGE'];
+    const fallbackExclusions = ['INACTIVE_WORKER', 'GPS_MISMATCH', 'ALREADY_COMPENSATED'];
+    const source = policy || {};
+
+    return {
+        ...source,
+        coveredEvents: Array.isArray(source.coveredEvents) && source.coveredEvents.length > 0
+            ? source.coveredEvents
+            : fallbackCoveredEvents,
+        exclusions: Array.isArray(source.exclusions) && source.exclusions.length > 0
+            ? source.exclusions
+            : fallbackExclusions
+    };
+}
+
 // SECURE: History now strictly scopes to the authenticated user's ID
 router.get('/history', async (req, res) => {
     try {
@@ -55,13 +71,10 @@ router.post('/auto-trigger', async (req, res) => {
         };
 
         // 🛡️ INSURANCE ELIGIBILITY CHECK
-        const activePolicy = await Policy.findOne({ workerId, status: 'active' }).lean().catch((err) => {
+        const activePolicy = normalizePolicy(await Policy.findOne({ workerId, status: 'active' }).lean().catch((err) => {
             console.warn("Policy lookup failed, using fallback policy:", err.message);
             return null;
-        }) || {
-            coveredEvents: ['HEAVY_RAIN', 'HEATWAVE', 'PLATFORM_OUTAGE'],
-            exclusions: ['INACTIVE_WORKER', 'GPS_MISMATCH', 'ALREADY_COMPENSATED']
-        };
+        }));
 
         if (!activePolicy.coveredEvents.includes(disruptionFactor.type)) {
             return res.json({ message: "Event not covered by active policy.", decision: { status: 'REJECTED', reasons: ["Event not covered"] } });
