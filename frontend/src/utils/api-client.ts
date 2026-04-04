@@ -34,8 +34,18 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
   const payload = contentType.includes("application/json") ? await response.json() : await response.text();
 
   if (!response.ok) {
-    const message = typeof payload === "string" ? payload : payload?.error || payload?.message || "Request failed";
+    const message = typeof payload === "string"
+      ? payload
+      : payload?.error?.message || payload?.error || payload?.message || "Request failed";
     throw new Error(message);
+  }
+
+  if (payload && typeof payload === "object" && "success" in payload && "data" in payload) {
+    const envelope = payload as { success: boolean; data: T; error?: { message?: string } | null };
+    if (!envelope.success) {
+      throw new Error(envelope.error?.message || "Request failed");
+    }
+    return envelope.data;
   }
 
   return payload as T;

@@ -6,6 +6,7 @@ const externalDataService = require('../services/externalDataService');
 const Claim = require('../models/claim');
 const Policy = require('../models/policy');
 const User = require('../models/user');
+const { sendSuccess, sendError } = require('../utils/http');
 
 function getWorkerId(req) {
     const candidate = req.user && (req.user.id || req.user._id || req.user.userId);
@@ -34,12 +35,12 @@ function normalizePolicy(policy) {
 router.get('/history', async (req, res) => {
     try {
         const workerId = getWorkerId(req);
-        if (!workerId) return res.status(401).json({ error: "Unauthorized" });
+        if (!workerId) return sendError(res, 401, "Unauthorized");
         const claims = await Claim.find({ workerId }).sort({ createdAt: -1 }).limit(10);
-        res.json(claims);
+        return sendSuccess(res, claims);
     } catch (e) {
         console.error("Fetch History Error:", e);
-        res.status(500).json({ error: "Could not fetch claims" });
+        return sendError(res, 500, "Could not fetch claims");
     }
 });
 
@@ -50,11 +51,11 @@ router.post('/auto-trigger', async (req, res) => {
         const { disruptionFactor } = req.body;
 
         if (!workerId) {
-            return res.status(401).json({ error: "Invalid or missing authentication." });
+            return sendError(res, 401, "Invalid or missing authentication.");
         }
 
         if (!disruptionFactor || typeof disruptionFactor !== 'object' || !disruptionFactor.type) {
-            return res.status(400).json({ error: "Invalid payload or missing authentication." });
+            return sendError(res, 400, "Invalid payload or missing authentication.");
         }
         
         // Fetch user context safely
@@ -90,11 +91,17 @@ router.post('/auto-trigger', async (req, res) => {
         }));
 
         if (!activePolicy.coveredEvents.includes(disruptionFactor.type)) {
-            return res.json({ message: "Event not covered by active policy.", decision: { status: 'REJECTED', reasons: ["Event not covered"] } });
+            return sendSuccess(res, {
+                message: "Event not covered by active policy.",
+                decision: { status: 'REJECTED', reasons: ["Event not covered"] }
+            });
         }
 
         if (disruptionFactor.isInactiveWorker && activePolicy.exclusions.includes('INACTIVE_WORKER')) {
-            return res.json({ message: "Claim rejected: Exclusion INACTIVE_WORKER matched.", decision: { status: 'REJECTED', reasons: ["Worker was inactive"] } });
+            return sendSuccess(res, {
+                message: "Claim rejected: Exclusion INACTIVE_WORKER matched.",
+                decision: { status: 'REJECTED', reasons: ["Worker was inactive"] }
+            });
         }
 
         // Fetch Live external data
@@ -123,7 +130,7 @@ router.post('/auto-trigger', async (req, res) => {
                 reasons: decision.reasons
             });
 
-            return res.json({ message: "Disruption severity too low.", decision });
+            return sendSuccess(res, { message: "Disruption severity too low.", decision });
         }
         
         // Evaluate trust score mapping
@@ -160,7 +167,7 @@ router.post('/auto-trigger', async (req, res) => {
             console.warn("Claim persistence failed, returning evaluation anyway:", persistError.message);
         }
         
-        res.json({
+        return sendSuccess(res, {
             message: "Claim processing completed",
             decision: claimDecision
         });
@@ -171,7 +178,7 @@ router.post('/auto-trigger', async (req, res) => {
             const disruptionFactor = req.body && req.body.disruptionFactor;
             const fallbackProfile = {
                 reputation: 85,
-                claims_history: [100, 120]
+                claims_history: []
             };
 
             if (workerId && disruptionFactor && typeof disruptionFactor === 'object' && disruptionFactor.type) {
@@ -186,7 +193,7 @@ router.post('/auto-trigger', async (req, res) => {
                         source: 'emergency_fallback'
                     };
 
-                return res.status(200).json({
+                return sendSuccess(res, {
                     message: "Claim processing completed with local fallback",
                     decision: fallbackDecision
                 });
@@ -195,7 +202,7 @@ router.post('/auto-trigger', async (req, res) => {
             console.error("Emergency fallback also failed:", fallbackError);
         }
 
-        res.status(500).json({ error: "Internal server error during claim generation." });
+        return sendError(res, 500, "Internal server error during claim generation.");
     }
 });
 

@@ -11,6 +11,9 @@ const PolicySchema = new mongoose.Schema({
     maxPayoutPerEvent: { type: Number, default: 1000 },
     waitingPeriod: { type: Number, default: 0 },
     activeHoursRequired: { type: Number, default: 4 },
+    shiftState: { type: String, enum: ['ON', 'OFF'], default: 'OFF' },
+    lastToggledAt: { type: Date },
+    toggleCount: { type: Number, default: 0 },
     status: { type: String, enum: ['active', 'expired', 'cancelled'], default: 'active' },
     createdAt: { type: Date, default: Date.now }
 });

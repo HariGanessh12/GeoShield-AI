@@ -1,69 +1,211 @@
-# 🛡️ GeoShield-AI
+# GeoShield-AI
 
-**GeoShield-AI** is an AI-powered Parametric Insurance Platform built natively for Gig Delivery Workers in India. It automatically protects workers against income loss from external disruptions—without them ever filling out a claim form.
+GeoShield-AI is a shift-aware insurance engine for gig workers that auto-prices protection, auto-scores claims, and only pays when the worker is actually on shift.
 
-## 🚀 The Mission
-Gig workers lose billions entirely outside their control:
-- 🌡️ **Extreme Heatwaves** & 🌧️ **Heavy Rain**
-- 🌫️ **Severe Pollution (AQI)** & 🚫 **Curfews/Lockdowns**
-- 📉 **Platform Outages**
+## Why this exists
+Gig workers lose income when the day breaks, not when a paperwork workflow decides to move. GeoShield-AI is built to cover:
+- heatwaves
+- heavy rain
+- platform outages
+- other disruption-driven income shocks
 
-Geoshield-AI acts as an invisible safety net. If a disruption threshold is crossed via external APIs, parametric smart-contracts trigger automatic payouts using **Trust Scores** and **Fraud-defensive AI**.
+The Phase 2 upgrade adds a differentiating concept that judges can remember: a micro-policy engine that lets workers turn coverage on and off during active work hours instead of paying for static, always-on coverage.
 
----
+## What makes this different
+- Coverage follows the shift, not the calendar. That is a more believable model for delivery and ride-share work.
+- Claims are explainable, not opaque. Every decision returns reasons, trust score, and payout logic.
+- The demo feels productized. The UI shows worker profile, policy state, toggle history, and recent claims in one place.
 
-## 🧠 Core Systems (The "Game Changers")
+## Core feature added for Phase 2
+### Micro-Policy Engine
+Workers can toggle policy coverage between `ON` and `OFF`.
 
-### 1. Explainable AI & Trust Scoring
-Judges don't just want a black box. Our AI provides precise **decision logic** for every claim:
-- Approves, Flags, or Rejects instantly using a dynamic **Trust Score (0-100)**.
-- Returns explicit `reasons` for transparency (e.g., *"GPS-IP Mismatch Detected"*, *"+10 Bonus: Excellent Reputation"*).
+Why it matters:
+- gig workers have irregular schedules
+- static insurance is wasteful when they are off-duty
+- on/off coverage makes the product feel custom-built for the gig economy instead of generic insurance software
 
-### 2. The Fairness Layer
-We don't punish genuine workers for system-wide flags:
-- **Reputation Score**: Tenured users gain a Trust Bonus.
-- **Grace Buffer**: Marginal scores for high-reputation workers get a buffer, allowing 1-2 anomalies before hard-blocking.
-- **Appeals**: `VERIFY` (Flagged) claims drop cleanly into an admin queue for human review.
+Endpoints:
+- `POST /api/worker/:id/policy/toggle`
+- `GET /api/worker/:id/policy/history`
+- `GET /api/worker/:id/summary`
 
-### 3. System Resilience (Market Crash Defense)
-To prevent devastating coordinated attacks (e.g., 500 fake claims from a single IP during a rainstorm), we employ multiple defense vectors:
-- **NetworkX Graph Clustering**: Re-engineers IP/Device linkages to isolate and detect coordinated fraud rings.
-- **Isolation Forests**: Behavioral anomaly detection to catch uncharacteristic earning variations natively.
+## Backend architecture
+- `Node.js` + `Express`
+- `MongoDB` + `Mongoose`
+- structured request logging with request IDs
+- standard JSON response envelope:
 
-### 4. Transparent Weekly Pricing
-Pricing shouldn't feel like a penalty. The UI breaks down exactly how the ₹72.50 weekly premium is dynamically structured natively via `risk_model.py`:
-- **Base Factor:** ₹50
-- **Heatwave/Weather Risk Delta:** +₹12
-- **High-Risk Location Delta:** +₹10.50
+```json
+{
+  "success": true,
+  "data": {},
+  "error": null,
+  "timestamp": "2026-04-04T06:00:00.000Z"
+}
+```
 
-### 5. MongoDB Atlas Persistence ☁️
-All claims and policy data are persisted using **MongoDB Atlas** for traceability and analytics.
+## API endpoints
 
----
+### Health
+`GET /health`
 
-## 🛠 Tech Stack
-- **Frontend**: Next.js, Tailwind CSS (Glassy, fully responsive UI)
-- **Backend API**: Node.js, Express (REST Orchestration)
-- **AI Engine**: Python (Scikit-Learn, NetworkX)
-- **Workflow Orchestration**: Declarative JSON Routing
+Response:
+```json
+{
+  "success": true,
+  "data": { "status": "healthy" },
+  "error": null,
+  "timestamp": "2026-04-04T06:00:00.000Z"
+}
+```
 
-## 🏃 Getting Started
+### Version
+`GET /version`
 
+Response:
+```json
+{
+  "success": true,
+  "data": {
+    "service": "backend",
+    "name": "backend",
+    "version": "1.0.0",
+    "environment": "development"
+  },
+  "error": null,
+  "timestamp": "2026-04-04T06:00:00.000Z"
+}
+```
+
+### Login
+`POST /api/auth/login`
+
+Request:
+```json
+{ "email": "user@gmail.com", "password": "password" }
+```
+
+Response:
+```json
+{
+  "success": true,
+  "data": {
+    "token": "jwt",
+    "user": {
+      "id": "mongo-user-id",
+      "email": "user@gmail.com",
+      "role": "worker"
+    }
+  },
+  "error": null,
+  "timestamp": "2026-04-04T06:00:00.000Z"
+}
+```
+
+### Claim history
+`GET /api/claim/history`
+
+Response:
+```json
+{
+  "success": true,
+  "data": [],
+  "error": null,
+  "timestamp": "2026-04-04T06:00:00.000Z"
+}
+```
+
+### Auto-trigger sample claim
+`POST /api/claim/auto-trigger`
+
+Request:
+```json
+{
+  "disruptionFactor": {
+    "type": "PLATFORM_OUTAGE",
+    "lossAmount": 400
+  }
+}
+```
+
+Response:
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Claim processing completed",
+    "decision": {
+      "status": "APPROVED",
+      "trust_score": 90,
+      "reasons": []
+    }
+  },
+  "error": null,
+  "timestamp": "2026-04-04T06:00:00.000Z"
+}
+```
+
+### Worker summary
+`GET /api/worker/:id/summary`
+
+Returns:
+- worker profile
+- current policy
+- current shift state
+- recent claims
+- recent policy toggles
+
+### Toggle policy
+`POST /api/worker/:id/policy/toggle`
+
+Request:
+```json
+{ "state": "ON", "reason": "demo_toggle" }
+```
+
+Response:
+```json
+{
+  "success": true,
+  "data": {
+    "workerId": "mongo-user-id",
+    "policy": {
+      "shiftState": "ON",
+      "toggleCount": 3
+    }
+  },
+  "error": null,
+  "timestamp": "2026-04-04T06:00:00.000Z"
+}
+```
+
+### Policy history
+`GET /api/worker/:id/policy/history`
+
+## Demo-ready UI
+Open the standalone dashboard:
+
+`frontend/public/phase2-demo-dashboard.html`
+
+It shows:
+- worker profile
+- current policy state
+- on/off coverage toggle animation
+- policy toggle history
+- recent claims
+
+## Local setup
 ```bash
-# 1. Run the APIs
 cd backend
-npm install && node index.js
+npm install
+npm run dev
 
-# 2. Start the Frontend Dashboards
-cd frontend
+cd ../frontend
 npm run dev
 ```
 
-*(Worker UI: `localhost:3000` | Admin Command Center: `localhost:3000/admin`)*
-
----
-## 🏆 Why Our Solution Stands Out
-- **Fraud-resilient parametric insurance** using graph clustering to natively halt bot rings.
-- **Real-time automated claims** bypassing human verification forms.
-- **Explainable AI decisions** returning auditable transparent reasoning dynamically.
-- **Designed for adversarial environments** natively blocking market crash attempts.
+## What makes this different
+- It is not just another claims bot. It is a time-aware coverage system for on-demand labor.
+- It combines claims automation with a policy state machine, which makes the product feel more like insurance infrastructure than a generic AI app.
+- The UI and API are built for demos: visible state changes, clear explanations, and a memorable story for judges.

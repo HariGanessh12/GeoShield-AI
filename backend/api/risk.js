@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
+const { sendSuccess, sendError } = require('../utils/http');
 
 router.get('/zone-risk', (req, res) => {
     // Return mock heatmap data for admin dashboard
-    res.json({
+    return sendSuccess(res, {
         zones: [
             { lat: 28.7041, lng: 77.1025, risk_level: "HIGH", reason: "Severe Heatwave" },
             { lat: 19.0760, lng: 72.8777, risk_level: "MEDIUM", reason: "Heavy Rain" }
@@ -34,7 +35,7 @@ router.post('/premium-breakdown', async (req, res) => {
         
         const premiumData = await response.json();
         console.log("[Backend] ML microservice response received.");
-        return res.json(premiumData);
+        return sendSuccess(res, premiumData);
     } catch(err) {
         console.error("[Backend] FastAPI connection failed, using local fallback. Error:", err.message);
         
@@ -77,10 +78,10 @@ router.post('/premium-breakdown', async (req, res) => {
                 is_mock: true
             };
             console.log("[Backend] Local fallback payload generated.");
-            return res.json(payload);
+            return sendSuccess(res, payload);
         } catch (innerErr) {
             console.error("[Backend] CRITICAL: Fallback logic failed:", innerErr.message);
-            return res.status(500).json({ error: "Internal server error in risk assessment fallback." });
+            return sendError(res, 500, "Internal server error in risk assessment fallback.");
         }
     }
 });

@@ -3,6 +3,7 @@ const router = express.Router();
 const financialService = require('../services/financialService');
 const Claim = require('../models/claim');
 const User = require('../models/user');
+const { sendSuccess, sendError } = require('../utils/http');
 
 // Simple In-Memory Cache
 const cache = {
@@ -12,14 +13,18 @@ const cache = {
 };
 
 router.get('/business', async (req, res) => {
-    const metrics = await financialService.getBusinessMetrics();
-    res.json(metrics);
+    try {
+        const metrics = await financialService.getBusinessMetrics();
+        return sendSuccess(res, metrics);
+    } catch (e) {
+        return sendError(res, 500, "Could not fetch business metrics");
+    }
 });
 
 router.get('/admin-dashboard', async (req, res) => {
     // Return cached data if valid
     if (cache.dashboard && cache.lastUpdated && (Date.now() - cache.lastUpdated < cache.TTL)) {
-        return res.json({ ...cache.dashboard, cached: true });
+        return sendSuccess(res, { ...cache.dashboard, cached: true });
     }
 
     try {
@@ -51,9 +56,9 @@ router.get('/admin-dashboard', async (req, res) => {
         cache.dashboard = dashboardData;
         cache.lastUpdated = Date.now();
 
-        res.json({ ...dashboardData, cached: false });
+        return sendSuccess(res, { ...dashboardData, cached: false });
     } catch (e) {
-        res.status(500).json({ error: "Failed to load dashboard metrics" });
+        return sendError(res, 500, "Failed to load dashboard metrics");
     }
 });
 

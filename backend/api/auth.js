@@ -3,6 +3,8 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 const { verifyToken, verifyAdmin } = require('../middleware/authMiddleware');
+const { sendSuccess, sendError } = require('../utils/http');
+const { createValidator, validators } = require('../utils/validation');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'geoshield_super_secret_key_2026';
 
@@ -21,11 +23,14 @@ const seedAdmin = async () => {
 // Exec
 setTimeout(seedAdmin, 3000);
 
-router.post('/register', async (req, res) => {
+router.post('/register', createValidator([
+    { source: 'body', field: 'email', check: validators.nonEmptyString('email') },
+    { source: 'body', field: 'password', check: validators.nonEmptyString('password') }
+]), async (req, res) => {
     const { email, password, persona, zone } = req.body;
     try {
         const existing = await User.findOne({ email });
-        if (existing) return res.status(400).json({ error: "Email already exists" });
+        if (existing) return sendError(res, 400, "Email already exists");
         
         const user = await User.create({ 
             email, 
@@ -35,19 +40,25 @@ router.post('/register', async (req, res) => {
             zone: zone || 'Delhi NCR', 
             reputationScore: 85 
         });
-        res.json({ message: "Registered successfully", user: { email: user.email, role: user.role, persona: user.persona, zone: user.zone } });
+        return sendSuccess(res, {
+            message: "Registered successfully",
+            user: { email: user.email, role: user.role, persona: user.persona, zone: user.zone }
+        });
     } catch (e) {
-        res.status(500).json({ error: "Registration failed" });
+        return sendError(res, 500, "Registration failed");
     }
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', createValidator([
+    { source: 'body', field: 'email', check: validators.nonEmptyString('email') },
+    { source: 'body', field: 'password', check: validators.nonEmptyString('password') }
+]), async (req, res) => {
     try {
         const { email, password } = req.body;
         
         const user = await User.findOne({ email, password });
         if (!user) {
-            return res.status(401).json({ error: "Invalid email or password." });
+            return sendError(res, 401, "Invalid email or password.");
         }
 
         const payload = {
@@ -60,10 +71,10 @@ router.post('/login', async (req, res) => {
 
         const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
 
-        res.json({ token, user: payload });
+        return sendSuccess(res, { token, user: payload });
     } catch (error) {
         console.error("Login Route Error:", error);
-        res.status(500).json({ error: "Internal Server Error or DB Timeout." });
+        return sendError(res, 500, "Internal Server Error or DB Timeout.");
     }
 });
 
@@ -71,9 +82,9 @@ router.post('/login', async (req, res) => {
 router.get('/users', verifyToken, verifyAdmin, async (req, res) => {
     try {
         const users = await User.find({}, '-password').sort({ createdAt: -1 });
-        res.json(users);
+        return sendSuccess(res, users);
     } catch (e) {
-        res.status(500).json({ error: "Could not fetch users" });
+        return sendError(res, 500, "Could not fetch users");
     }
 });
 
@@ -81,18 +92,18 @@ router.put('/users/:id/role', verifyToken, verifyAdmin, async (req, res) => {
     try {
         const { role } = req.body;
         await User.findByIdAndUpdate(req.params.id, { role });
-        res.json({ success: true, message: "Role updated" });
+        return sendSuccess(res, { message: "Role updated" });
     } catch (e) {
-        res.status(500).json({ error: "Could not update user" });
+        return sendError(res, 500, "Could not update user");
     }
 });
 
 router.delete('/users/:id', verifyToken, verifyAdmin, async (req, res) => {
     try {
         await User.findByIdAndDelete(req.params.id);
-        res.json({ success: true, message: "User deleted" });
+        return sendSuccess(res, { message: "User deleted" });
     } catch (e) {
-        res.status(500).json({ error: "Could not delete user" });
+        return sendError(res, 500, "Could not delete user");
     }
 });
 
