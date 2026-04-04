@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Navbar } from "@/components/navbar";
 import { getSessionUser, type SessionUser } from "@/utils/auth";
 
-const publicRoutes = new Set(["/", "/register"]);
+const publicRoutes = new Set(["/", "/register", "/login", "/demo", "/privacy"]);
 
 export function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -15,7 +15,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   const isPublic = publicRoutes.has(pathname);
   const isAdminRoute = pathname.startsWith("/admin");
   const shouldBlockRender =
-    !mounted ||
+    (!mounted && !isPublic) ||
     (!user && !isPublic) ||
     (Boolean(user) && pathname === "/") ||
     (user?.role !== "admin" && isAdminRoute);

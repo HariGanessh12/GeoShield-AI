@@ -32,8 +32,8 @@ export function Navbar({ user }: { user: SessionUser | null }) {
   );
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
-  const authHref = pathname === "/register" ? "/" : "/register";
-  const authLabel = pathname === "/register" ? "Login" : "Register";
+  const authHref = pathname === "/register" ? "/login" : "/register";
+  const authLabel = pathname === "/register" ? "Sign In" : pathname === "/login" ? "Register" : "Sign In";
 
   const handleLogout = () => {
     clearSession();
@@ -61,8 +61,8 @@ export function Navbar({ user }: { user: SessionUser | null }) {
                 <span className="text-sm font-black text-white">GS</span>
               </div>
               <div>
-                <div className="text-sm font-black uppercase tracking-[0.2em] text-white light-mode:text-slate-900">GeoShield-AI</div>
-                <div className="text-[11px] text-white/50 light-mode:text-slate-500">Adaptive coverage for gig workers</div>
+                <div className="text-sm font-black uppercase tracking-[0.2em] text-white light-mode:text-slate-900">GeoShield AI</div>
+                <div className="text-[11px] text-white/50 light-mode:text-slate-500">Real-time geospatial threat detection</div>
               </div>
             </Link>
 

@@ -68,7 +68,7 @@ export default function RegisterPage() {
           </motion.button>
         </form>
         <div className="mt-6 text-center text-sm text-white/55 light-mode:text-slate-500">
-          <Link href="/" className="font-bold text-emerald-300 light-mode:text-emerald-600">Back to login</Link>
+          <Link href="/login" className="font-bold text-emerald-300 light-mode:text-emerald-600">Back to sign in</Link>
         </div>
       </motion.main>
     </div>
