@@ -42,6 +42,42 @@ export default function RiskPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const getZoneName = (lat: number | undefined, lng: number | undefined, index: number) => {
+    if (!lat || !lng) return `Zone ${index + 1}`;
+    if (lat.toFixed(2) === "28.70" && lng.toFixed(2) === "77.10") return "Delhi NCR";
+    if (lat.toFixed(2) === "19.08" && lng.toFixed(2) === "72.88") return "Mumbai";
+    return `Zone ${index + 1}`;
+  };
+
+  const riskStyles = `
+    .risk-pulse {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ef4444;
+      display: inline-block;
+      margin-right: 6px;
+      animation: riskPulse 1.5s infinite;
+    }
+    @keyframes riskPulse {
+      0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 0.5;
+        transform: scale(1.3);
+      }
+    }
+  `;
+
+  const getZoneName = (lat: number | undefined, lng: number | undefined, index: number) => {
+    if (!lat || !lng) return `Zone ${index + 1}`;
+    if (lat.toFixed(2) === "28.70" && lng.toFixed(2) === "77.10") return "Delhi NCR";
+    if (lat.toFixed(2) === "19.08" && lng.toFixed(2) === "72.88") return "Mumbai";
+    return `Zone ${index + 1}`;
+  };
+
   useEffect(() => {
     const user = getSessionUser();
     const selectedZone = user?.zone || "Delhi NCR";
@@ -84,7 +120,7 @@ export default function RiskPage() {
       variants={containerVariants}
       className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8"
     >
-      <motion.section variants={itemVariants} className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-8 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-2xl">
+      <motion.section variants={itemVariants} className="rounded-4xl border border-white/10 bg-white/3 p-8 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-2xl">
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-sky-300 light-mode:text-sky-700">Risk engine</p>
         <h1 className="mt-3 text-4xl font-black text-white light-mode:text-slate-900">Risk and premium breakdown</h1>
         <p className="mt-3 max-w-2xl text-white/65 light-mode:text-slate-600">
@@ -95,7 +131,7 @@ export default function RiskPage() {
       {error ? <motion.div variants={itemVariants} className="mt-6 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-5 py-4 text-sm text-rose-200 light-mode:text-rose-700">{error}</motion.div> : null}
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <motion.section variants={itemVariants} className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-xl">
+        <motion.section variants={itemVariants} className="rounded-4xl border border-white/10 bg-white/3 p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-xl">
           <h2 className="text-2xl font-black text-white light-mode:text-slate-900">Zone signals</h2>
           <div className="mt-6 space-y-4">
             {loading ? (
@@ -110,12 +146,12 @@ export default function RiskPage() {
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.05 }}
-                  className="rounded-2xl border border-white/10 bg-black/20 p-5 light-mode:border-black/10 light-mode:bg-white shadow-sm transition-colors hover:bg-black/30 light-mode:hover:bg-slate-50"
+                  className={`rounded-2xl border border-white/10 bg-black/20 p-5 light-mode:border-black/10 light-mode:bg-white shadow-sm transition-colors hover:bg-black/30 light-mode:hover:bg-slate-50 ${item.risk_level === 'HIGH' ? 'border-l-4 border-l-red-500 bg-red-500/5' : item.risk_level === 'MEDIUM' ? 'border-l-4 border-l-amber-500' : item.risk_level === 'LOW' ? 'border-l-4 border-l-emerald-500' : ''}`}
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <div className="text-lg font-bold text-white light-mode:text-slate-900">{item.risk_level}</div>
-                    <div className="text-xs text-white/50 light-mode:text-slate-500">
-                      {item.lat?.toFixed(2)}, {item.lng?.toFixed(2)}
+                    <div className="text-lg font-bold text-white light-mode:text-slate-900" title={`${item.lat?.toFixed(2)}° N, ${item.lng?.toFixed(2)}° E`}>
+                      {item.risk_level === 'HIGH' && <span className="risk-pulse"></span>}
+                      {getZoneName(item.lat, item.lng, index)}
                     </div>
                   </div>
                   <p className="mt-3 text-sm text-white/65 light-mode:text-slate-600">{item.reason}</p>
@@ -124,7 +160,7 @@ export default function RiskPage() {
           </div>
         </motion.section>
 
-        <motion.section variants={itemVariants} className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-xl">
+        <motion.section variants={itemVariants} className="rounded-4xl border border-white/10 bg-white/3 p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-xl">
           <h2 className="text-2xl font-black text-white light-mode:text-slate-900">Premium model</h2>
           {premium ? (
             <motion.div variants={containerVariants} className="mt-6 space-y-4">
@@ -154,6 +190,7 @@ export default function RiskPage() {
           )}
         </motion.section>
       </div>
+      <style dangerouslySetInnerHTML={{__html: riskStyles}} />
     </motion.main>
   );
 }

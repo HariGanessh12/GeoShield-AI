@@ -83,6 +83,10 @@ export default function DashboardPage() {
   const [warningDismissed, setWarningDismissed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showToggleModal, setShowToggleModal] = useState(false);
+  const [modalRiskData, setModalRiskData] = useState<ZoneRiskResponse | null>(null);
+  const [toastMessage, setToastMessage] = useState("");
+  const [showToast, setShowToast] = useState(false);
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => setMounted(true));
@@ -147,7 +151,105 @@ export default function DashboardPage() {
 
   const lastClaim = claims[0];
   const trustScore = lastClaim?.trustScore || 85;
+  const currentScore = trustScore;
+  const previousScore = claims[1]?.trustScore;
+  const delta = previousScore !== undefined ? currentScore - previousScore : 0;
   const currentPolicyState = policyToggleState;
+
+  // Determine contextual banner content
+  const contextualBanner = (() => {
+    // Priority 1: Weekly policy inactive
+    if (!policy || policy.status !== "ACTIVE") {
+      return (
+        <motion.div
+          variants={itemVariants}
+          className="mb-6 flex items-center justify-between rounded-lg border-l-4 border-amber-400 bg-amber-50 p-4 text-sm"
+        >
+          <p className="text-amber-800">
+            You have no active policy. Activate weekly coverage to stay protected.
+          </p>
+          <Link
+            href="/policy"
+            className="rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 transition-colors"
+          >
+            View Policy Options
+          </Link>
+        </motion.div>
+      );
+    }
+
+    // Priority 2: Weekly policy active but micro-policy off
+    if (currentPolicyState === "OFF") {
+      return (
+        <motion.div
+          variants={itemVariants}
+          className="mb-6 flex items-center justify-between rounded-lg border-l-4 border-blue-400 bg-blue-50 p-4 text-sm"
+        >
+          <p className="text-blue-800">
+            Your weekly policy is active but shift coverage is OFF. Toggle ON when you start working.
+          </p>
+          <button
+            onClick={() => {
+              const element = document.getElementById("micro-policy-panel");
+              element?.scrollIntoView({ behavior: "smooth" });
+            }}
+            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
+          >
+            Activate Shift Coverage
+          </button>
+        </motion.div>
+      );
+    }
+
+    // Priority 3: Policy ON, micro-policy ON, high risk
+    if (risk.label === "HIGH") {
+      return (
+        <motion.div
+          variants={itemVariants}
+          className="mb-6 flex items-center justify-between rounded-lg border-l-4 border-red-400 bg-red-50 p-4 text-sm"
+        >
+          <p className="text-red-800">
+            HIGH risk conditions in your zone. You're covered. Report any disruption immediately.
+          </p>
+          <Link
+            href="/claims"
+            className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 transition-colors"
+          >
+            Report Disruption
+          </Link>
+        </motion.div>
+      );
+    }
+
+    // Priority 4: All good - no banner
+    return null;
+  })();
+
+  const handleToggleConfirm = async () => {
+    const user = getSessionUser();
+    if (!user) return;
+
+    try {
+      // Fetch current risk data for the modal
+      const riskData = await apiFetch<ZoneRiskResponse>("/api/risk/zone-risk");
+      setModalRiskData(riskData);
+      setShowToggleModal(true);
+    } catch (err) {
+      console.error("Could not fetch risk data for modal:", err);
+      // Still show modal with default data
+      setModalRiskData({ zones: [{ risk_level: "MEDIUM", reason: "Unable to fetch live risk data" }] });
+      setShowToggleModal(true);
+    }
+  };
+
+  const confirmToggleOn = () => {
+    setShowToggleModal(false);
+    togglePolicy();
+  };
+
+  const cancelToggle = () => {
+    setShowToggleModal(false);
+  };
 
   const togglePolicy = async () => {
     const user = getSessionUser();
@@ -165,6 +267,15 @@ export default function DashboardPage() {
       setPolicyToggleState(result.policy.shiftState || nextState);
       setPolicyHistory((current) => [result.toggle, ...current].slice(0, 3));
       await loadDashboardData({ showLoading: false });
+
+      // Show toast notification
+      if (nextState === "ON") {
+        setToastMessage("Coverage active. You're protected until you end your shift.");
+      } else {
+        setToastMessage("Coverage paused. Toggle ON when your next shift starts.");
+      }
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
     } catch (err) {
       setToggleError(err instanceof Error ? err.message : "Could not update policy");
     } finally {
@@ -179,7 +290,7 @@ export default function DashboardPage() {
       variants={containerVariants}
       className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8"
     >
-      <motion.section variants={itemVariants} className="mb-8 flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-white/[0.03] p-8 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 lg:flex-row lg:items-end lg:justify-between">
+      <motion.section variants={itemVariants} className="mb-8 flex flex-col gap-4 rounded-4xl border border-white/10 bg-white/3 p-8 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-sky-300 light-mode:text-sky-700">Main hub</p>
           <h1 className="mt-3 text-4xl font-black text-white light-mode:text-slate-900">Worker dashboard</h1>
@@ -191,6 +302,9 @@ export default function DashboardPage() {
           <Link href="/risk" className="rounded-full border border-indigo-500/30 bg-indigo-500/10 px-5 py-3 text-sm font-bold text-indigo-200 light-mode:text-indigo-700 transition hover:bg-indigo-500/20">View Premium Breakdown</Link>
         </div>
       </motion.section>
+
+      {/* Contextual Banner */}
+      {contextualBanner}
 
       {error ? <motion.div variants={itemVariants} className="mb-6 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-5 py-4 text-sm text-rose-200 light-mode:text-rose-700">{error}</motion.div> : null}
       {autoShutoffWarning && !warningDismissed ? (
@@ -230,12 +344,123 @@ export default function DashboardPage() {
         <motion.div variants={itemVariants} className="rounded-[1.75rem] border border-white/10 bg-black/20 p-6 shadow-lg transition-transform hover:scale-[1.02] light-mode:border-black/10 light-mode:bg-white/80">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/50 light-mode:text-slate-500">Trust Score</p>
           <h2 className="mt-4 text-3xl font-black text-white light-mode:text-slate-900">{trustScore}/100</h2>
-          <p className="mt-3 text-sm text-white/65 light-mode:text-slate-600">Based on your latest claim assessment and reputation behavior.</p>
+          {delta !== 0 && (
+            <p className={`mt-2 text-sm font-bold ${delta > 0 ? 'text-green-600' : 'text-red-500'}`}>
+              {delta > 0 ? `↑ +${delta}` : `↓ ${delta}`}
+            </p>
+          )}
+          <p className="mt-1 text-gray-500 text-xs">Maintained by 3 consecutive approved claims this week.</p>
         </motion.div>
       </motion.section>
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-[1.5fr_1fr]">
-        <motion.section variants={itemVariants} className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-2xl">
+      <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_1fr]">
+        <motion.div id="micro-policy-panel" variants={itemVariants} className="rounded-4xl border border-white/10 bg-white/3 p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-xl">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-300 light-mode:text-emerald-700">Micro-Policy</p>
+              <h3 className="mt-3 text-2xl font-black text-white light-mode:text-slate-900">
+                {currentPolicyState === "ON" ? "Coverage ON" : "Coverage OFF"}
+              </h3>
+              <p className="mt-2 text-sm text-white/60 light-mode:text-slate-600">
+                {currentPolicyState === "ON"
+                  ? "You are actively covered while working."
+                  : "Coverage is paused until you start your shift."}
+              </p>
+            </div>
+            <div className={`rounded-full px-3 py-1 text-xs font-bold ${currentPolicyState === "ON" ? "bg-green-50 text-green-600 border border-green-200" : "bg-red-50 text-red-600 border border-red-200"}`}>
+              {currentPolicyState === "ON" ? "ACTIVE COVERAGE" : "NO COVERAGE"}
+            </div>
+          </div>
+
+          <button
+            onClick={() => {
+              if (currentPolicyState === "ON") {
+                togglePolicy();
+              } else {
+                handleToggleConfirm();
+              }
+            }}
+            disabled={toggleLoading}
+            className={`mt-5 w-full rounded-2xl px-5 py-4 text-sm font-black tracking-[0.08em] transition ${
+              currentPolicyState === "ON"
+                ? "bg-gray-500 text-white hover:bg-gray-600"
+                : "bg-red-500 text-white hover:bg-red-600"
+            } disabled:cursor-not-allowed disabled:opacity-60`}
+          >
+            {toggleLoading ? "Updating coverage..." : currentPolicyState === "ON" ? "Pause Coverage" : "Activate Coverage Now"}
+          </button>
+          <p className="mt-3 text-xs text-white/45 light-mode:text-slate-500">
+            This is not a settings switch. It is the worker declaring they are on the road and want coverage now.
+          </p>
+          {toggleError ? (
+            <div className="mt-4 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200 light-mode:text-rose-700">
+              {toggleError}
+            </div>
+          ) : null}
+
+          <div className="mt-6 space-y-3 text-sm text-white/70 light-mode:text-slate-600">
+            <div className="flex items-center justify-between"><span>Active coverage hours</span><span className="font-bold">{policySummary?.activeCoverageHours ?? 0}h</span></div>
+            <div className="flex items-center justify-between"><span>Full coverage monthly cost</span><span className="font-bold">{formatCurrency(policySummary?.fullCoverageMonthlyCost)}</span></div>
+            <div className="flex items-center justify-between"><span>Micro-policy monthly cost</span><span className="font-bold" title={policySummary?.activeCoverageHours === 0 ? "Calculated after your first active shift" : undefined}>{policySummary?.activeCoverageHours === 0 ? "—" : formatCurrency(policySummary?.microPolicyMonthlyCost)}</span></div>
+            <div className="flex items-center justify-between"><span>Estimated monthly saving</span><span className="font-bold text-emerald-300 light-mode:text-emerald-700">{formatCurrency(policySummary?.estimatedMonthlySaving)}</span></div>
+            <div className="flex items-center justify-between"><span>Coverage efficiency</span><span className="font-bold">{policySummary?.activeCoverageHours === 0 ? "—" : `${policySummary?.coverageEfficiencyPercent ?? 0}%`}</span></div>
+          </div>
+
+          {policySummary?.activeCoverageHours === 0 && (
+            <p className="mt-3 text-gray-500 text-sm">Toggle coverage ON during your next shift to start tracking savings. Workers save an average of 38% compared to always-on plans.</p>
+          )}
+
+          <div className="mt-6 border-t border-white/10 pt-5 light-mode:border-black/10">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-bold uppercase tracking-[0.2em] text-white/50 light-mode:text-slate-500">Recent policy activity</h4>
+              <span className="text-xs text-white/45 light-mode:text-slate-500">Last 3 entries</span>
+            </div>
+            <div className="mt-4 space-y-3">
+              {policyHistory.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-white/10 px-4 py-5 text-sm text-white/50 light-mode:border-black/10 light-mode:text-slate-500">
+                  No policy toggles yet. Turn coverage ON to start the audit trail.
+                </div>
+              ) : (
+                policyHistory.map((entry) => (
+                  <div key={`${entry.createdAt}-${entry.currentState}`} className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm light-mode:border-black/10 light-mode:bg-white">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-bold text-white light-mode:text-slate-900">
+                        Turned {entry.currentState}
+                      </span>
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${entry.currentState === "ON" ? toneClass.success : toneClass.danger}`}>
+                        {entry.currentState}
+                      </span>
+                    </div>
+                    <div className="mt-2 text-white/60 light-mode:text-slate-500">
+                      {formatRelativeTime(entry.createdAt)}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div variants={containerVariants} className="space-y-6">
+          <motion.div variants={itemVariants} className="rounded-4xl border border-white/10 bg-white/3 p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-xl overflow-hidden group">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/50 light-mode:text-slate-500">Risk Level</p>
+            <h3 className="mt-3 text-3xl font-black text-white light-mode:text-slate-900 group-hover:text-indigo-400 transition-colors">{risk.label}</h3>
+            <p className="mt-3 text-sm text-white/65 light-mode:text-slate-600">{risk.reason}</p>
+          </motion.div>
+
+          <motion.div variants={itemVariants} className="rounded-4xl border border-white/10 bg-white/3 p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-xl">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/50 light-mode:text-slate-500">Premium Snapshot</p>
+            <div className="mt-4 space-y-3 text-sm text-white/70 light-mode:text-slate-600">
+              <div className="flex items-center justify-between"><span>Expected loss</span><span className="font-bold">{formatCurrency(premium?.expected_loss_inr)}</span></div>
+              <div className="flex items-center justify-between"><span>Risk margin</span><span className="font-bold">{formatCurrency(premium?.risk_margin_inr)}</span></div>
+              <div className="flex items-center justify-between"><span>Platform fee</span><span className="font-bold">{formatCurrency(premium?.platform_fee_inr)}</span></div>
+            </div>
+          </motion.div>
+        </motion.div>
+      </div>
+
+      <div className="mt-8">
+        <motion.section variants={itemVariants} className="rounded-4xl border border-white/10 bg-white/3 p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-2xl">
           <div className="mb-5 flex items-center justify-between">
             <div>
               <h3 className="text-xl font-bold text-white light-mode:text-slate-900">Recent Claims</h3>
@@ -270,105 +495,109 @@ export default function DashboardPage() {
             ))}
           </div>
         </motion.section>
+      </div>
 
-        <motion.div variants={containerVariants} className="space-y-6">
-          <motion.div variants={itemVariants} className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-xl overflow-hidden group">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/50 light-mode:text-slate-500">Risk Level</p>
-            <h3 className="mt-3 text-3xl font-black text-white light-mode:text-slate-900 group-hover:text-indigo-400 transition-colors">{risk.label}</h3>
-            <p className="mt-3 text-sm text-white/65 light-mode:text-slate-600">{risk.reason}</p>
-          </motion.div>
+      {/* Toggle Confirmation Modal */}
+      {showToggleModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="mx-4 w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl light-mode:bg-white"
+          >
+            <h2 className="text-xl font-bold text-slate-900">
+              Starting your shift in {getSessionUser()?.zone || "Delhi NCR"}
+            </h2>
 
-          <motion.div variants={itemVariants} className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-xl">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/50 light-mode:text-slate-500">Premium Snapshot</p>
-            <div className="mt-4 space-y-3 text-sm text-white/70 light-mode:text-slate-600">
-              <div className="flex items-center justify-between"><span>Expected loss</span><span className="font-bold">{formatCurrency(premium?.expected_loss_inr)}</span></div>
-              <div className="flex items-center justify-between"><span>Risk margin</span><span className="font-bold">{formatCurrency(premium?.risk_margin_inr)}</span></div>
-              <div className="flex items-center justify-between"><span>Platform fee</span><span className="font-bold">{formatCurrency(premium?.platform_fee_inr)}</span></div>
-            </div>
-          </motion.div>
+            <div className="mt-6 space-y-4">
+              {/* Risk Level */}
+              <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+                <span className="text-sm font-medium text-slate-700">Current risk level</span>
+                <span
+                  className={`rounded-full px-3 py-1 text-xs font-bold ${
+                    modalRiskData?.zones[0]?.risk_level === "HIGH"
+                      ? "bg-red-100 text-red-700"
+                      : modalRiskData?.zones[0]?.risk_level === "MEDIUM"
+                      ? "bg-yellow-100 text-yellow-700"
+                      : "bg-green-100 text-green-700"
+                  }`}
+                  style={{
+                    backgroundColor:
+                      modalRiskData?.zones[0]?.risk_level === "HIGH"
+                        ? "#fee2e2"
+                        : modalRiskData?.zones[0]?.risk_level === "MEDIUM"
+                        ? "#fef3c7"
+                        : "#d1fae5",
+                    color:
+                      modalRiskData?.zones[0]?.risk_level === "HIGH"
+                        ? "#ef4444"
+                        : modalRiskData?.zones[0]?.risk_level === "MEDIUM"
+                        ? "#f59e0b"
+                        : "#10b981",
+                  }}
+                >
+                  {modalRiskData?.zones[0]?.risk_level || "MEDIUM"}
+                </span>
+              </div>
 
-          <motion.div variants={itemVariants} className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-xl">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-300 light-mode:text-cyan-700">Why micro-policy?</p>
-            <h3 className="mt-3 text-2xl font-black text-white light-mode:text-slate-900">You&apos;re only paying for the hours you actually work.</h3>
-            <div className="mt-4 space-y-3 text-sm text-white/70 light-mode:text-slate-600">
-              <div className="flex items-center justify-between"><span>Active coverage hours</span><span className="font-bold">{policySummary?.activeCoverageHours ?? 0}h</span></div>
-              <div className="flex items-center justify-between"><span>Full coverage monthly cost</span><span className="font-bold">{formatCurrency(policySummary?.fullCoverageMonthlyCost)}</span></div>
-              <div className="flex items-center justify-between"><span>Micro-policy monthly cost</span><span className="font-bold">{formatCurrency(policySummary?.microPolicyMonthlyCost)}</span></div>
-              <div className="flex items-center justify-between"><span>Estimated monthly saving</span><span className="font-bold text-emerald-300 light-mode:text-emerald-700">{formatCurrency(policySummary?.estimatedMonthlySaving)}</span></div>
-              <div className="flex items-center justify-between"><span>Coverage efficiency</span><span className="font-bold">{policySummary?.coverageEfficiencyPercent ?? 0}%</span></div>
-            </div>
-          </motion.div>
+              {/* Active Disruption Events */}
+              <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                <p className="text-sm font-medium text-slate-700 mb-2">Active disruption events</p>
+                <ul className="text-sm text-slate-600 space-y-1">
+                  {modalRiskData?.zones[0]?.reason ? (
+                    <li>• {modalRiskData.zones[0].reason}</li>
+                  ) : (
+                    <li>• No active disruptions detected</li>
+                  )}
+                </ul>
+              </div>
 
-          <motion.div variants={itemVariants} className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-xl">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-300 light-mode:text-emerald-700">Micro-Policy</p>
-                <h3 className="mt-3 text-2xl font-black text-white light-mode:text-slate-900">
-                  {currentPolicyState === "ON" ? "Coverage ON" : "Coverage OFF"}
-                </h3>
-                <p className="mt-2 text-sm text-white/60 light-mode:text-slate-600">
-                  {currentPolicyState === "ON"
-                    ? "You are actively covered while working."
-                    : "Coverage is paused until you start your shift."}
+              {/* Estimated Payout */}
+              <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                <p className="text-sm font-medium text-slate-700">
+                  If you experience {modalRiskData?.zones[0]?.reason?.toLowerCase() || "a disruption"} today, estimated payout: ₹{policy?.coverageAmount ? Math.round(policy.coverageAmount * 0.8) : "2,500"}
                 </p>
               </div>
-              <div className={`rounded-full px-3 py-1 text-xs font-bold ${currentPolicyState === "ON" ? toneClass.success : toneClass.danger}`}>
-                {currentPolicyState === "ON" ? "ACTIVE COVERAGE" : "NO COVERAGE"}
+
+              {/* Trust Score */}
+              <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                <p className="text-sm font-medium text-slate-700">
+                  Your trust score: {trustScore}/100 — qualifies for {trustScore > 80 ? "instant" : "standard"} approval
+                </p>
               </div>
             </div>
 
-            <button
-              onClick={togglePolicy}
-              disabled={toggleLoading}
-              className={`mt-5 w-full rounded-2xl px-5 py-4 text-sm font-black tracking-[0.08em] transition ${
-                currentPolicyState === "ON"
-                  ? "bg-rose-500/15 text-rose-200 border border-rose-500/30 hover:bg-rose-500/20"
-                  : "bg-emerald-500/15 text-emerald-200 border border-emerald-500/30 hover:bg-emerald-500/20"
-              } disabled:cursor-not-allowed disabled:opacity-60`}
-            >
-              {toggleLoading ? "Updating coverage..." : currentPolicyState === "ON" ? "Turn Coverage OFF" : "Turn Coverage ON"}
-            </button>
-            <p className="mt-3 text-xs text-white/45 light-mode:text-slate-500">
-              This is not a settings switch. It is the worker declaring they are on the road and want coverage now.
-            </p>
-            {toggleError ? (
-              <div className="mt-4 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200 light-mode:text-rose-700">
-                {toggleError}
-              </div>
-            ) : null}
-
-            <div className="mt-6 border-t border-white/10 pt-5 light-mode:border-black/10">
-              <div className="flex items-center justify-between">
-                <h4 className="text-sm font-bold uppercase tracking-[0.2em] text-white/50 light-mode:text-slate-500">Recent policy activity</h4>
-                <span className="text-xs text-white/45 light-mode:text-slate-500">Last 3 entries</span>
-              </div>
-              <div className="mt-4 space-y-3">
-                {policyHistory.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-white/10 px-4 py-5 text-sm text-white/50 light-mode:border-black/10 light-mode:text-slate-500">
-                    No policy toggles yet. Turn coverage ON to start the audit trail.
-                  </div>
-                ) : (
-                  policyHistory.map((entry) => (
-                    <div key={`${entry.createdAt}-${entry.currentState}`} className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm light-mode:border-black/10 light-mode:bg-white">
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="font-bold text-white light-mode:text-slate-900">
-                          Turned {entry.currentState}
-                        </span>
-                        <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${entry.currentState === "ON" ? toneClass.success : toneClass.danger}`}>
-                          {entry.currentState}
-                        </span>
-                      </div>
-                      <div className="mt-2 text-white/60 light-mode:text-slate-500">
-                        {formatRelativeTime(entry.createdAt)}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={cancelToggle}
+                className="flex-1 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmToggleOn}
+                disabled={toggleLoading}
+                className="flex-1 rounded-2xl bg-red-500 px-4 py-3 text-sm font-bold text-white hover:bg-red-600 disabled:opacity-60"
+              >
+                {toggleLoading ? "Starting..." : "Start Shift & Activate Coverage"}
+              </button>
             </div>
           </motion.div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {showToast && (
+        <motion.div
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 50 }}
+          className="fixed bottom-6 right-6 z-50 rounded-2xl bg-slate-900 px-6 py-4 text-white shadow-lg"
+        >
+          <p className="text-sm font-medium">{toastMessage}</p>
         </motion.div>
-      </div>
+      )}
     </motion.main>
   );
 }

@@ -155,7 +155,7 @@ export default function DemoWorkspace() {
   return (
     <div className="grid min-h-[calc(100vh-81px)] bg-[rgb(var(--background-start-rgb))] text-[rgb(var(--foreground-rgb))] lg:grid-cols-[380px_minmax(0,1fr)]">
       <aside className="border-b border-white/10 bg-[#0b1020] p-5 lg:border-b-0 lg:border-r lg:border-white/10 light-mode:border-slate-200 light-mode:bg-white">
-        <div className="rounded-[1.8rem] border border-white/10 bg-white/[0.03] p-5 shadow-2xl light-mode:border-slate-200 light-mode:bg-slate-50">
+        <div className="rounded-[1.8rem] border border-white/10 bg-white/3 p-5 shadow-2xl light-mode:border-slate-200 light-mode:bg-slate-50">
           <p className="text-xs font-bold uppercase tracking-[0.22em] text-cyan-300 light-mode:text-cyan-700">Public demo</p>
           <h1 className="mt-3 text-3xl font-black text-white light-mode:text-slate-950">Live risk map</h1>
           <p className="mt-3 text-sm leading-7 text-white/65 light-mode:text-slate-600">Explore seeded geospatial risk zones, AI summaries, and a downloadable report without logging in.</p>
@@ -169,7 +169,7 @@ export default function DemoWorkspace() {
               className={`w-full rounded-[1.4rem] border px-4 py-4 text-left transition ${
                 selectedRegion.id === region.id
                   ? "border-cyan-400/35 bg-cyan-500/10 light-mode:border-cyan-500/25 light-mode:bg-cyan-50"
-                  : "border-white/10 bg-white/[0.03] hover:bg-white/[0.05] light-mode:border-slate-200 light-mode:bg-white light-mode:hover:bg-slate-50"
+                  : "border-white/10 bg-white/3 hover:bg-white/5 light-mode:border-slate-200 light-mode:bg-white light-mode:hover:bg-slate-50"
               }`}
             >
               <div className="flex items-center justify-between">
@@ -183,7 +183,7 @@ export default function DemoWorkspace() {
           ))}
         </div>
 
-        <div className="mt-5 rounded-[1.8rem] border border-white/10 bg-white/[0.03] p-5 light-mode:border-slate-200 light-mode:bg-slate-50">
+        <div className="mt-5 rounded-[1.8rem] border border-white/10 bg-white/3 p-5 light-mode:border-slate-200 light-mode:bg-slate-50">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/55 light-mode:text-slate-500">Active alerts</h2>
             <span className="text-xs text-white/40 light-mode:text-slate-400">3 open</span>
@@ -201,7 +201,7 @@ export default function DemoWorkspace() {
           </div>
         </div>
 
-        <div className="mt-5 rounded-[1.8rem] border border-white/10 bg-white/[0.03] p-5 light-mode:border-slate-200 light-mode:bg-slate-50">
+        <div className="mt-5 rounded-[1.8rem] border border-white/10 bg-white/3 p-5 light-mode:border-slate-200 light-mode:bg-slate-50">
           <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/55 light-mode:text-slate-500">Risk score chart</h2>
           <div className="mt-4 space-y-3">
             {demoRegions.map((region) => (
@@ -234,7 +234,7 @@ export default function DemoWorkspace() {
       </aside>
 
       <section className="relative min-h-[60vh] bg-slate-950 lg:min-h-[calc(100vh-81px)] light-mode:bg-slate-100">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(14,165,233,0.18),_transparent_36%),linear-gradient(180deg,rgba(2,6,23,0.92),rgba(3,7,18,0.98))] light-mode:bg-[radial-gradient(circle_at_top_right,_rgba(14,165,233,0.12),_transparent_36%),linear-gradient(180deg,rgba(248,250,252,0.94),rgba(241,245,249,0.98))]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(14,165,233,0.18),transparent_36%),linear-gradient(180deg,rgba(2,6,23,0.92),rgba(3,7,18,0.98))] light-mode:bg-[radial-gradient(circle_at_top_right,rgba(14,165,233,0.12),transparent_36%),linear-gradient(180deg,rgba(248,250,252,0.94),rgba(241,245,249,0.98))]" />
         <div className="relative h-full min-h-[60vh] lg:min-h-[calc(100vh-81px)]">
           <GeoRiskMap
             regions={demoRegions}
@@ -246,7 +246,7 @@ export default function DemoWorkspace() {
               }
             }}
           />
-          <div className="pointer-events-none absolute left-4 top-4 max-w-md rounded-[1.5rem] border border-white/10 bg-slate-950/80 p-4 text-white shadow-2xl backdrop-blur light-mode:border-slate-200 light-mode:bg-white/85 light-mode:text-slate-950">
+          <div className="pointer-events-none absolute left-4 top-4 max-w-md rounded-3xl border border-white/10 bg-slate-950/80 p-4 text-white shadow-2xl backdrop-blur light-mode:border-slate-200 light-mode:bg-white/85 light-mode:text-slate-950">
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-cyan-300 light-mode:text-cyan-700">Demo mode</p>
             <h2 className="mt-2 text-2xl font-black">{selectedRegion.name}</h2>
             <p className="mt-2 text-sm leading-7 text-white/70 light-mode:text-slate-600">{selectedRegion.summary}</p>

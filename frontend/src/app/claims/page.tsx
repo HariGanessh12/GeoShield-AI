@@ -26,9 +26,9 @@ type ClaimResponse = {
 };
 
 const sampleTriggers = [
-  { label: "Heatwave", payload: { type: "HEATWAVE", lossAmount: 450 } },
-  { label: "Heavy Rain", payload: { type: "HEAVY_RAIN", lossAmount: 550 } },
-  { label: "Platform Outage", payload: { type: "PLATFORM_OUTAGE", lossAmount: 400 } },
+  { label: "Heatwave", description: "I was affected by extreme heat today", payload: { type: "HEATWAVE", lossAmount: 450 } },
+  { label: "Heavy Rain", description: "Heavy rain disrupted my shift", payload: { type: "HEAVY_RAIN", lossAmount: 550 } },
+  { label: "Platform Outage", description: "My platform went down mid-shift", payload: { type: "PLATFORM_OUTAGE", lossAmount: 400 } },
 ];
 
 const containerVariants = {
@@ -108,11 +108,11 @@ export default function ClaimsPage() {
       variants={containerVariants}
       className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8"
     >
-      <motion.section variants={itemVariants} className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-8 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-2xl">
+      <motion.section variants={itemVariants} className="rounded-4xl border border-white/10 bg-white/3 p-8 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-2xl">
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-300 light-mode:text-amber-700">Claims</p>
         <h1 className="mt-3 text-4xl font-black text-white light-mode:text-slate-900">Trigger and review claims</h1>
         <p className="mt-3 max-w-2xl text-white/65 light-mode:text-slate-600">
-          Test a disruption event, then inspect the latest trust decision and payout outcome.
+          Something disrupted your shift? Report it here. We verify it automatically.
         </p>
       </motion.section>
 
@@ -120,8 +120,8 @@ export default function ClaimsPage() {
       {error ? <motion.div variants={itemVariants} className="mt-6 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-5 py-4 text-sm text-rose-200 light-mode:text-rose-700">{error}</motion.div> : null}
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-        <motion.section variants={itemVariants} className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-xl">
-          <h2 className="text-2xl font-black text-white light-mode:text-slate-900">Trigger a sample event</h2>
+        <motion.section variants={itemVariants} className="rounded-4xl border border-white/10 bg-white/3 p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-xl">
+          <h2 className="text-2xl font-black text-white light-mode:text-slate-900">Report a disruption</h2>
           <motion.div variants={containerVariants} className="mt-6 space-y-4">
             {sampleTriggers.map((item) => (
               <motion.button
@@ -133,14 +133,14 @@ export default function ClaimsPage() {
               >
                 <div className="text-sm font-black text-white light-mode:text-slate-900">{item.label}</div>
                 <div className="mt-1 text-sm text-white/55 light-mode:text-slate-500">
-                  {submitting === item.label ? "Submitting..." : `Run an automated ${item.label.toLowerCase()} claim`}
+                  {submitting === item.label ? "Submitting..." : item.description}
                 </div>
               </motion.button>
             ))}
           </motion.div>
         </motion.section>
 
-        <motion.section variants={itemVariants} className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-xl">
+        <motion.section variants={itemVariants} className="rounded-4xl border border-white/10 bg-white/3 p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-xl">
           <h2 className="text-2xl font-black text-white light-mode:text-slate-900">Recent claim history</h2>
           <div className="mt-6 space-y-4">
             {loading ? (

@@ -23,7 +23,7 @@ export function ClaimExplanation({ reasons = [], adjustments = [], score = 0, co
   const scoreClass = scoreTone(score) === "success" ? "text-emerald-400" : scoreTone(score) === "warning" ? "text-amber-400" : "text-rose-400";
 
   return (
-    <div className="rounded-[1.75rem] border border-white/10 bg-black/20 p-6 light-mode:border-black/10 light-mode:bg-black/[0.03]">
+    <div className="rounded-[1.75rem] border border-white/10 bg-black/20 p-6 light-mode:border-black/10 light-mode:bg-black/3">
       <div className="mb-5 flex items-end justify-between gap-4 border-b border-white/10 pb-4 light-mode:border-black/10">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/50 light-mode:text-slate-500">Claim explanation</p>
