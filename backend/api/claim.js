@@ -1,16 +1,25 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const trustScoreService = require('../services/trustScore');
 const externalDataService = require('../services/externalDataService');
 const Claim = require('../models/claim');
 const Policy = require('../models/policy');
 const User = require('../models/user');
 
+function getWorkerId(req) {
+    const candidate = req.user && (req.user.id || req.user._id || req.user.userId);
+    if (!candidate) return null;
+    const workerId = String(candidate);
+    return mongoose.Types.ObjectId.isValid(workerId) ? workerId : null;
+}
+
 // SECURE: History now strictly scopes to the authenticated user's ID
 router.get('/history', async (req, res) => {
     try {
-        if (!req.user || !req.user.id) return res.status(401).json({ error: "Unauthorized" });
-        const claims = await Claim.find({ workerId: req.user.id }).sort({ createdAt: -1 }).limit(10);
+        const workerId = getWorkerId(req);
+        if (!workerId) return res.status(401).json({ error: "Unauthorized" });
+        const claims = await Claim.find({ workerId }).sort({ createdAt: -1 }).limit(10);
         res.json(claims);
     } catch (e) {
         console.error("Fetch History Error:", e);
@@ -21,20 +30,35 @@ router.get('/history', async (req, res) => {
 router.post('/auto-trigger', async (req, res) => {
     try {
         // SECURE: Always derive workerId from verified JWT
-        const workerId = req.user && (req.user.id || req.user._id || req.user.userId);
+        const workerId = getWorkerId(req);
         const { disruptionFactor } = req.body;
 
-        if (!workerId || !disruptionFactor) {
+        if (!workerId) {
+            return res.status(401).json({ error: "Invalid or missing authentication." });
+        }
+
+        if (!disruptionFactor || typeof disruptionFactor !== 'object' || !disruptionFactor.type) {
             return res.status(400).json({ error: "Invalid payload or missing authentication." });
         }
         
         // Fetch user context safely
-        const user = await User.findById(workerId).lean() || { 
-            zone: 'Delhi NCR', reputationScore: 85, personaType: 'FOOD_DELIVERY', _id: workerId 
+        const userRecord = await User.findById(workerId).lean().catch((err) => {
+            console.warn("User lookup failed, using fallback profile:", err.message);
+            return null;
+        });
+        const user = userRecord || {
+            zone: 'Delhi NCR',
+            reputationScore: 85,
+            personaType: 'FOOD_DELIVERY',
+            claims_history: [100, 120],
+            _id: workerId
         };
 
         // 🛡️ INSURANCE ELIGIBILITY CHECK
-        const activePolicy = await Policy.findOne({ workerId: workerId, status: 'active' }) || {
+        const activePolicy = await Policy.findOne({ workerId, status: 'active' }).lean().catch((err) => {
+            console.warn("Policy lookup failed, using fallback policy:", err.message);
+            return null;
+        }) || {
             coveredEvents: ['HEAVY_RAIN', 'HEATWAVE', 'PLATFORM_OUTAGE'],
             exclusions: ['INACTIVE_WORKER', 'GPS_MISMATCH', 'ALREADY_COMPENSATED']
         };
