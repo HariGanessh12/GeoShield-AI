@@ -1,5 +1,8 @@
 const mongoose = require('mongoose');
 
+// We enforce strict ON/OFF states (no intermediate) because gig workers 
+// need instant coverage activation — ambiguous states = uncovered incidents
+
 const PolicySchema = new mongoose.Schema({
     workerId: { type: String, required: true },
     startDate: { type: Date, required: true },
