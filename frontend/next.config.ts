@@ -21,7 +21,6 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   basePath,
-  distDir: process.env.NEXT_DIST_DIR?.trim() || ".next-verify",
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },
