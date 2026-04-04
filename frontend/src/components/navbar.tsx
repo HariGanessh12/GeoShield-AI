@@ -32,8 +32,9 @@ export function Navbar({ user }: { user: SessionUser | null }) {
   );
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+  const showPublicAuthLinks = pathname === "/" || pathname === "/demo" || pathname === "/privacy";
   const authHref = pathname === "/register" ? "/login" : "/register";
-  const authLabel = pathname === "/register" ? "Sign In" : pathname === "/login" ? "Register" : "Sign In";
+  const authLabel = pathname === "/register" ? "Sign In" : pathname === "/login" ? "Register" : "Sign Up";
 
   const handleLogout = () => {
     clearSession();
@@ -46,12 +47,24 @@ export function Navbar({ user }: { user: SessionUser | null }) {
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
         {isLoggedOut ? (
           <>
-            <div />
+            <div className="flex items-center gap-2">
+              {showPublicAuthLinks ? (
+                <>
+                  <Link href="/login" className="rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-white/75 transition hover:border-white/30 hover:text-white light-mode:border-black/10 light-mode:text-slate-600 light-mode:hover:border-black/20 light-mode:hover:text-slate-900">
+                    Sign In
+                  </Link>
+                  <Link href="/register" className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:scale-105 active:scale-95">
+                    Register
+                  </Link>
+                </>
+              ) : (
+                <Link href={authHref} className="rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-white/75 transition hover:border-white/30 hover:text-white light-mode:border-black/10 light-mode:text-slate-600 light-mode:hover:border-black/20 light-mode:hover:text-slate-900">
+                  {authLabel}
+                </Link>
+              )}
+            </div>
             <div className="flex items-center gap-3">
               <ThemeToggle />
-              <Link href={authHref} className="rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-white/75 transition hover:border-white/30 hover:text-white light-mode:border-black/10 light-mode:text-slate-600 light-mode:hover:border-black/20 light-mode:hover:text-slate-900">
-                {authLabel}
-              </Link>
             </div>
           </>
         ) : (
