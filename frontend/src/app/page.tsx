@@ -70,48 +70,48 @@ const mapRegions = [
 export default function LandingPage() {
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <section className="overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.18),_transparent_32%),linear-gradient(180deg,rgba(8,12,22,0.96),rgba(6,8,14,0.96))] px-6 py-8 shadow-2xl sm:px-8 lg:px-10">
-        <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-[0.22em] text-white/45">
-          <Link href="#how-it-works" className="transition hover:text-white">How it works</Link>
-          <Link href="#features" className="transition hover:text-white">Features</Link>
-          <Link href="#use-cases" className="transition hover:text-white">Use cases</Link>
-          <Link href="/privacy" className="transition hover:text-white">Privacy</Link>
+      <section className="overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.18),_transparent_32%),linear-gradient(180deg,rgba(8,12,22,0.96),rgba(6,8,14,0.96))] px-6 py-8 shadow-2xl sm:px-8 lg:px-10 light-mode:border-slate-200 light-mode:bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.18),_transparent_32%),linear-gradient(180deg,rgba(248,250,252,0.96),rgba(241,245,249,0.98))]">
+        <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-[0.22em] text-white/45 light-mode:text-slate-500">
+          <Link href="#how-it-works" className="transition hover:text-white light-mode:hover:text-slate-900">How it works</Link>
+          <Link href="#features" className="transition hover:text-white light-mode:hover:text-slate-900">Features</Link>
+          <Link href="#use-cases" className="transition hover:text-white light-mode:hover:text-slate-900">Use cases</Link>
+          <Link href="/privacy" className="transition hover:text-white light-mode:hover:text-slate-900">Privacy</Link>
         </div>
 
         <div className="mt-8 grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
           <div>
-            <p className="text-sm font-bold uppercase tracking-[0.35em] text-cyan-300">GeoShield AI</p>
-            <h1 className="mt-4 max-w-3xl text-5xl font-black leading-tight text-white sm:text-6xl">
+            <p className="text-sm font-bold uppercase tracking-[0.35em] text-cyan-300 light-mode:text-cyan-700">GeoShield AI</p>
+            <h1 className="mt-4 max-w-3xl text-5xl font-black leading-tight text-white sm:text-6xl light-mode:text-slate-950">
               AI-Powered Threat Detection. Before Disaster Strikes.
             </h1>
-            <p className="mt-5 max-w-2xl text-lg leading-8 text-white/72">
+            <p className="mt-5 max-w-2xl text-lg leading-8 text-white/72 light-mode:text-slate-600">
               GeoShield AI monitors real-time geospatial signals - weather, satellite imagery, sensor networks, and crowd data - to predict and alert on emerging threats 6 hours before they escalate.
             </p>
             <div className="mt-8 flex flex-wrap gap-4">
               <Link href="/demo" className="rounded-full bg-white px-6 py-3.5 text-sm font-black text-slate-900 transition hover:scale-[1.02] active:scale-95">
                 Try Live Demo &rarr;
               </Link>
-              <Link href="#how-it-works" className="rounded-full border border-white/15 px-6 py-3.5 text-sm font-black text-white transition hover:bg-white/5">
+              <Link href="#how-it-works" className="rounded-full border border-white/15 px-6 py-3.5 text-sm font-black text-white transition hover:bg-white/5 light-mode:border-slate-300 light-mode:text-slate-900 light-mode:hover:bg-slate-100">
                 See How It Works
               </Link>
             </div>
             <div className="mt-8 grid gap-4 sm:grid-cols-3">
               {statCards.map((stat) => (
-                <article key={stat.label} className="rounded-3xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur">
-                  <div className="text-2xl font-black text-white">{stat.value}</div>
-                  <p className="mt-2 text-sm leading-6 text-white/65">{stat.label}</p>
+                <article key={stat.label} className="rounded-3xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur light-mode:border-slate-200 light-mode:bg-white">
+                  <div className="text-2xl font-black text-white light-mode:text-slate-950">{stat.value}</div>
+                  <p className="mt-2 text-sm leading-6 text-white/65 light-mode:text-slate-600">{stat.label}</p>
                 </article>
               ))}
             </div>
           </div>
 
           <div className="relative">
-            <div className="absolute inset-0 rounded-[2rem] bg-cyan-500/10 blur-2xl" />
-            <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950/80 p-4 shadow-2xl">
+            <div className="absolute inset-0 rounded-[2rem] bg-cyan-500/10 blur-2xl light-mode:bg-sky-400/10" />
+            <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950/80 p-4 shadow-2xl light-mode:border-slate-200 light-mode:bg-white/85">
               <div className="mb-3 flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.25em] text-cyan-300">Live risk map</p>
-                  <h2 className="mt-1 text-lg font-black text-white">Seeded threat zones</h2>
+                  <p className="text-xs font-bold uppercase tracking-[0.25em] text-cyan-300 light-mode:text-cyan-700">Live risk map</p>
+                  <h2 className="mt-1 text-lg font-black text-white light-mode:text-slate-950">Seeded threat zones</h2>
                 </div>
                 <div className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-300">
                   Interactive
@@ -122,12 +122,12 @@ export default function LandingPage() {
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
                 {mapRegions.map((region) => (
-                  <div key={region.id} className="rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm text-white/70">
+                  <div key={region.id} className="rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm text-white/70 light-mode:border-slate-200 light-mode:bg-slate-50 light-mode:text-slate-600">
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-white">{region.name}</span>
+                      <span className="font-bold text-white light-mode:text-slate-900">{region.name}</span>
                       <span className="text-xs font-black" style={{ color: region.color }}>{region.score}</span>
                     </div>
-                    <div className="mt-2 h-2 rounded-full bg-white/10">
+                    <div className="mt-2 h-2 rounded-full bg-white/10 light-mode:bg-slate-200">
                       <div className="h-2 rounded-full" style={{ width: `${region.score}%`, backgroundColor: region.color }} />
                     </div>
                   </div>
@@ -140,24 +140,24 @@ export default function LandingPage() {
 
       <section className="mt-8 grid gap-5 md:grid-cols-3" aria-label="Problem statement">
         {statCards.map((stat) => (
-          <article key={stat.label} className="rounded-[1.75rem] border border-white/10 bg-white/[0.03] p-6 shadow-xl">
-            <div className="text-3xl font-black text-white">{stat.value}</div>
-            <p className="mt-3 text-sm leading-7 text-white/68">{stat.label}</p>
+          <article key={stat.label} className="rounded-[1.75rem] border border-white/10 bg-white/[0.03] p-6 shadow-xl light-mode:border-slate-200 light-mode:bg-white">
+            <div className="text-3xl font-black text-white light-mode:text-slate-950">{stat.value}</div>
+            <p className="mt-3 text-sm leading-7 text-white/68 light-mode:text-slate-600">{stat.label}</p>
           </article>
         ))}
       </section>
 
-      <section id="how-it-works" className="mt-10 rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 shadow-2xl">
+      <section id="how-it-works" className="mt-10 rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 shadow-2xl light-mode:border-slate-200 light-mode:bg-white">
         <div className="max-w-2xl">
-          <p className="text-xs font-bold uppercase tracking-[0.22em] text-cyan-300">How it works</p>
-          <h2 className="mt-3 text-3xl font-black text-white">From signals to action in three steps.</h2>
+          <p className="text-xs font-bold uppercase tracking-[0.22em] text-cyan-300 light-mode:text-cyan-700">How it works</p>
+          <h2 className="mt-3 text-3xl font-black text-white light-mode:text-slate-950">From signals to action in three steps.</h2>
         </div>
         <div className="mt-6 grid gap-4 lg:grid-cols-3">
           {steps.map((step) => (
-            <article key={step.title} className="rounded-[1.6rem] border border-white/10 bg-black/20 p-5">
+            <article key={step.title} className="rounded-[1.6rem] border border-white/10 bg-black/20 p-5 light-mode:border-slate-200 light-mode:bg-slate-50">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-cyan-500/25 bg-cyan-500/10 text-sm font-black text-cyan-200">{step.icon}</div>
-              <h3 className="mt-4 text-xl font-bold text-white">{step.title}</h3>
-              <p className="mt-3 text-sm leading-7 text-white/65">{step.description}</p>
+              <h3 className="mt-4 text-xl font-bold text-white light-mode:text-slate-950">{step.title}</h3>
+              <p className="mt-3 text-sm leading-7 text-white/65 light-mode:text-slate-600">{step.description}</p>
             </article>
           ))}
         </div>
@@ -165,40 +165,40 @@ export default function LandingPage() {
 
       <section id="features" className="mt-10">
         <div className="max-w-2xl">
-          <p className="text-xs font-bold uppercase tracking-[0.22em] text-cyan-300">Features</p>
-          <h2 className="mt-3 text-3xl font-black text-white">Designed to be useful to operators, not just impressive on a slide.</h2>
+          <p className="text-xs font-bold uppercase tracking-[0.22em] text-cyan-300 light-mode:text-cyan-700">Features</p>
+          <h2 className="mt-3 text-3xl font-black text-white light-mode:text-slate-950">Designed to be useful to operators, not just impressive on a slide.</h2>
         </div>
         <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {features.map((feature) => (
-            <article key={feature.title} className="rounded-[1.6rem] border border-white/10 bg-white/[0.03] p-5 shadow-lg">
-              <h3 className="text-lg font-bold text-white">{feature.title}</h3>
-              <p className="mt-3 text-sm leading-7 text-white/65">{feature.description}</p>
+            <article key={feature.title} className="rounded-[1.6rem] border border-white/10 bg-white/[0.03] p-5 shadow-lg light-mode:border-slate-200 light-mode:bg-white">
+              <h3 className="text-lg font-bold text-white light-mode:text-slate-950">{feature.title}</h3>
+              <p className="mt-3 text-sm leading-7 text-white/65 light-mode:text-slate-600">{feature.description}</p>
             </article>
           ))}
         </div>
       </section>
 
-      <section id="use-cases" className="mt-10 rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 shadow-2xl">
+      <section id="use-cases" className="mt-10 rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 shadow-2xl light-mode:border-slate-200 light-mode:bg-white">
         <div className="max-w-2xl">
-          <p className="text-xs font-bold uppercase tracking-[0.22em] text-cyan-300">Use cases</p>
-          <h2 className="mt-3 text-3xl font-black text-white">Useful across flood response, public safety, and disaster coordination.</h2>
+          <p className="text-xs font-bold uppercase tracking-[0.22em] text-cyan-300 light-mode:text-cyan-700">Use cases</p>
+          <h2 className="mt-3 text-3xl font-black text-white light-mode:text-slate-950">Useful across flood response, public safety, and disaster coordination.</h2>
         </div>
         <div className="mt-6 grid gap-4 lg:grid-cols-3">
           {useCases.map((useCase) => (
-            <article key={useCase.title} className="rounded-[1.6rem] border border-white/10 bg-black/20 p-5">
-              <h3 className="text-lg font-bold text-white">{useCase.title}</h3>
-              <p className="mt-3 text-sm leading-7 text-white/65">{useCase.description}</p>
+            <article key={useCase.title} className="rounded-[1.6rem] border border-white/10 bg-black/20 p-5 light-mode:border-slate-200 light-mode:bg-slate-50">
+              <h3 className="text-lg font-bold text-white light-mode:text-slate-950">{useCase.title}</h3>
+              <p className="mt-3 text-sm leading-7 text-white/65 light-mode:text-slate-600">{useCase.description}</p>
             </article>
           ))}
         </div>
       </section>
 
-      <section className="mt-10 rounded-[2rem] border border-cyan-500/20 bg-gradient-to-r from-cyan-500/10 via-slate-900 to-indigo-500/10 px-6 py-8 shadow-2xl">
+      <section className="mt-10 rounded-[2rem] border border-cyan-500/20 bg-gradient-to-r from-cyan-500/10 via-slate-900 to-indigo-500/10 px-6 py-8 shadow-2xl light-mode:border-sky-200 light-mode:from-sky-50 light-mode:via-white light-mode:to-sky-100">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.22em] text-cyan-200">CTA</p>
-            <h2 className="mt-3 text-3xl font-black text-white">Start protecting your region today</h2>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-white/70">Turn live geospatial signals into a shared operational view that helps teams move faster when the next threat appears.</p>
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-cyan-200 light-mode:text-cyan-700">CTA</p>
+            <h2 className="mt-3 text-3xl font-black text-white light-mode:text-slate-950">Start protecting your region today</h2>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-white/70 light-mode:text-slate-600">Turn live geospatial signals into a shared operational view that helps teams move faster when the next threat appears.</p>
           </div>
           <Link href="/register" className="inline-flex rounded-full bg-white px-6 py-3.5 text-sm font-black text-slate-900 transition hover:scale-[1.02] active:scale-95">
             Sign Up
@@ -206,7 +206,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <footer className="py-10 text-center text-sm text-white/45">
+      <footer className="py-10 text-center text-sm text-white/45 light-mode:text-slate-500">
         Protecting regions. Powered by AI.
       </footer>
     </main>
