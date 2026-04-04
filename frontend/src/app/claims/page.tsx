@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import Link from "next/link";
 import { apiFetch } from "@/utils/api-client";
 import { formatCurrency, statusTone } from "@/utils/format";
 
@@ -110,10 +111,17 @@ export default function ClaimsPage() {
     >
       <motion.section variants={itemVariants} className="rounded-4xl border border-white/10 bg-white/3 p-8 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-2xl">
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-300 light-mode:text-amber-700">Claims</p>
-        <h1 className="mt-3 text-4xl font-black text-white light-mode:text-slate-900">Trigger and review claims</h1>
-        <p className="mt-3 max-w-2xl text-white/65 light-mode:text-slate-600">
-          Something disrupted your shift? Report it here. We verify it automatically.
-        </p>
+        <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h1 className="mt-3 text-4xl font-black text-white light-mode:text-slate-900">Trigger and review claims</h1>
+            <p className="mt-3 max-w-2xl text-white/65 light-mode:text-slate-600">
+              Something disrupted your shift? Report it here. We verify it automatically.
+            </p>
+          </div>
+          <Link href="/dashboard" className="text-sm font-semibold text-sky-300 light-mode:text-sky-700 hover:underline">
+            Back to dashboard
+          </Link>
+        </div>
       </motion.section>
 
       {message ? <motion.div variants={itemVariants} className="mt-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-4 text-sm text-emerald-200 light-mode:text-emerald-700">{message}</motion.div> : null}
