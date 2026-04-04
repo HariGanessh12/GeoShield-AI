@@ -1,3 +1,5 @@
+const AI_ENGINE_BASE_URL = process.env.AI_ENGINE_BASE_URL || (process.env.NODE_ENV === 'production' ? "" : "http://localhost:8001");
+
 function buildClaimPayload(workerId, disruptionFactor, userProfile) {
     return {
         history: userProfile.claims_history || [100, 150, 100],
@@ -158,6 +160,11 @@ async function evaluateClaim(workerId, disruptionFactor, userProfile) {
     const payload = buildClaimPayload(workerId, disruptionFactor, userProfile);
 
     try {
+        if (!AI_ENGINE_BASE_URL) {
+            console.warn("AI engine base URL is not configured. Using local fallback.");
+            return buildLocalFallbackDecision(workerId, disruptionFactor, userProfile);
+        }
+
         const fraudFetchOptions = {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -177,8 +184,8 @@ async function evaluateClaim(workerId, disruptionFactor, userProfile) {
         };
 
         const [fraudResponse, graphResponse] = await Promise.all([
-            fetch("http://localhost:8001/fraud-detect", fraudFetchOptions),
-            fetch("http://localhost:8001/graph-detect", graphFetchOptions)
+            fetch(`${AI_ENGINE_BASE_URL.replace(/\/$/, "")}/fraud-detect`, fraudFetchOptions),
+            fetch(`${AI_ENGINE_BASE_URL.replace(/\/$/, "")}/graph-detect`, graphFetchOptions)
         ]);
 
         if (!fraudResponse.ok || !graphResponse.ok) {
