@@ -1,10 +1,5 @@
-const express = require('express');
-const router = express.Router();
-const User = require('../models/user');
-const Policy = require('../models/policy');
-const { sendSuccess, sendError } = require('../utils/http');
-const { createValidator, validators } = require('../utils/validation');
-const { getExternalData } = require('../services/externalDataService');
+const { spawn } = require('child_process');
+const path = require('path');
 
 const COVERED_EVENTS = ['HEAVY_RAIN', 'HEATWAVE', 'PLATFORM_OUTAGE', 'AQI_SEVERE', 'TRAFFIC_SURGE'];
 
@@ -12,6 +7,46 @@ function personaMultiplier(personaType) {
     if (personaType === 'GROCERY_DELIVERY') return 1.15;
     if (personaType === 'BIKE_TAXI') return 1.3;
     return 1.0;
+}
+
+async function callRiskModel(inputData) {
+    return new Promise((resolve, reject) => {
+        const pythonProcess = spawn('python', [
+            path.join(__dirname, '../../ai-engine/risk_model_v2.py'),
+            JSON.stringify(inputData)
+        ]);
+
+        let stdout = '';
+        let stderr = '';
+
+        pythonProcess.stdout.on('data', (data) => {
+            stdout += data.toString();
+        });
+
+        pythonProcess.stderr.on('data', (data) => {
+            stderr += data.toString();
+        });
+
+        pythonProcess.on('close', (code) => {
+            if (code !== 0) {
+                console.error('Risk model error:', stderr);
+                reject(new Error(`Risk model failed: ${stderr}`));
+                return;
+            }
+
+            try {
+                const result = JSON.parse(stdout.trim());
+                resolve(result);
+            } catch (e) {
+                reject(new Error(`Failed to parse risk model output: ${e.message}`));
+            }
+        });
+
+        pythonProcess.on('error', (error) => {
+            console.error('Failed to start risk model:', error);
+            reject(error);
+        });
+    });
 }
 
 router.get('/current', async (req, res) => {
@@ -50,6 +85,13 @@ router.post('/quote', createValidator([
         const user = await User.findById(userId);
         if (!user) return sendError(res, 404, "User not found");
 
+        // Get claim history for credibility calculation
+        const claimHistory = await require('../models/claim').find(
+            { workerId: userId },
+            { status: 1, amount: 1, createdAt: 1 }
+        ).sort({ createdAt: -1 }).limit(20).lean();
+
+        // Get external data
         const [heatwave, rain, outage, aqi, traffic] = await Promise.all([
             getExternalData('HEATWAVE', user.zone),
             getExternalData('HEAVY_RAIN', user.zone),
@@ -58,6 +100,7 @@ router.post('/quote', createValidator([
             getExternalData('TRAFFIC_SURGE', user.zone)
         ]);
 
+        // Calculate weighted severity for backward compatibility
         const weightedSeverity = (
             heatwave.severityScore * 0.24 +
             rain.severityScore * 0.22 +
@@ -66,30 +109,35 @@ router.post('/quote', createValidator([
             traffic.severityScore * 0.2
         );
 
-        const basePremium = 50;
-        const dynamicZoneSurcharge = Math.round(weightedSeverity * 45);
-        const personaAdjustment = Math.round((personaMultiplier(user.personaType) - 1) * 25);
-        const reputationBonus = Math.max(0, user.reputationScore - 80);
-        const maxDiscount = 15;
-        const appliedDiscount = Math.min(maxDiscount, reputationBonus);
-        const finalPremium = Math.max(50, basePremium + dynamicZoneSurcharge + personaAdjustment - appliedDiscount);
+        // Call advanced risk model
+        const riskInput = {
+            weather: weightedSeverity * 100,  // Convert to 0-100 scale
+            traffic: traffic.severityScore * 100,
+            location: (heatwave.severityScore + rain.severityScore + aqi.severityScore) / 3 * 100,
+            persona_type: user.personaType || 'FOOD_DELIVERY',
+            reputation_score: user.reputationScore || 85,
+            claim_history: claimHistory.map(c => ({ status: c.status, approved: c.status === 'APPROVED' })),
+            zone: user.zone
+        };
+
+        const riskResult = await callRiskModel(riskInput);
 
         return sendSuccess(res, {
-            quote: finalPremium,
-            breakdown: {
-                base: basePremium,
-                zoneSurcharge: dynamicZoneSurcharge,
-                personaAdjustment,
-                reputationDiscount: appliedDiscount,
-                weightedSeverity: Number(weightedSeverity.toFixed(2))
-            },
+            quote: riskResult.weekly_premium_inr,
+            breakdown: riskResult.breakdown,
+            risk_level: riskResult.risk_level,
+            risk_score: riskResult.risk_score,
+            expected_loss: riskResult.expected_loss,
+            loss_ratio_projection: riskResult.loss_ratio_projection,
+            credibility: riskResult.credibility,
             coverageAmount: 3500,
             signals: {
                 heatwave: heatwave.severityScore,
                 rain: rain.severityScore,
                 outage: outage.severityScore,
                 aqi: aqi.severityScore,
-                traffic: traffic.severityScore
+                traffic: traffic.severityScore,
+                weightedSeverity: Number(weightedSeverity.toFixed(2))
             }
         });
     } catch (e) {

@@ -121,10 +121,19 @@ export default function ClaimsPage() {
     setSubmitting(label);
     setError("");
     setMessage("");
+
     try {
+      // Get GPS location
+      const location = await getCurrentLocation();
+      const deviceInfo = getDeviceInfo();
+
       const result = await apiFetch<ClaimResponse>("/api/claim/auto-trigger", {
         method: "POST",
-        body: JSON.stringify({ disruptionFactor }),
+        body: JSON.stringify({
+          disruptionFactor,
+          location,
+          deviceInfo
+        }),
       });
       setMessage(result.message || `${label} claim processed`);
       setZeroTouchResult(null);
@@ -297,4 +306,68 @@ export default function ClaimsPage() {
       </div>
     </motion.main>
   );
+}
+
+// Helper functions for GPS and device info
+async function getCurrentLocation(): Promise<{
+  zone: string;
+  coordinates: { lat: number; lng: number };
+  accuracy: number;
+  timestamp: string;
+} | undefined> {
+  if (!navigator.geolocation) {
+    console.warn('Geolocation not supported');
+    return undefined;
+  }
+
+  try {
+    const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 300000 // 5 minutes
+      });
+    });
+
+    // Mock zone detection based on coordinates (Delhi NCR bounds)
+    let zone = 'Delhi NCR';
+    const { latitude, longitude } = position.coords;
+
+    if (latitude > 19 && latitude < 20 && longitude > 72.5 && longitude < 73.5) {
+      zone = 'Mumbai South';
+    } else if (latitude > 12.8 && latitude < 13.2 && longitude > 77.5 && longitude < 77.8) {
+      zone = 'Bangalore Central';
+    }
+
+    return {
+      zone,
+      coordinates: { lat: latitude, lng: longitude },
+      accuracy: position.coords.accuracy,
+      timestamp: new Date().toISOString()
+    };
+  } catch (error) {
+    console.warn('GPS location error:', error);
+    return undefined;
+  }
+}
+
+function getDeviceInfo(): {
+  ipAddress?: string;
+  userAgent: string;
+  deviceId?: string;
+} {
+  return {
+    userAgent: navigator.userAgent,
+    // In production, deviceId would be generated and stored securely
+    deviceId: localStorage.getItem('deviceId') || generateDeviceId()
+  };
+}
+
+function generateDeviceId(): string {
+  const stored = localStorage.getItem('deviceId');
+  if (stored) return stored;
+
+  const deviceId = 'device_' + Math.random().toString(36).substr(2, 9);
+  localStorage.setItem('deviceId', deviceId);
+  return deviceId;
 }

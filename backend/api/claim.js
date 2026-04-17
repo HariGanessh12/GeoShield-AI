@@ -159,7 +159,7 @@ router.post('/auto-trigger', async (req, res) => {
     try {
         // SECURE: Always derive workerId from verified JWT
         const workerId = getWorkerId(req);
-        const { disruptionFactor } = req.body;
+        const { disruptionFactor, location, deviceInfo } = req.body;
 
         if (!workerId) {
             return sendError(res, 401, "Invalid or missing authentication.");
@@ -232,59 +232,54 @@ router.post('/auto-trigger', async (req, res) => {
             
             await Claim.create({
                 workerId: workerId,
+                policyId: activePolicy._id,
                 trigger: disruptionFactor.type,
-                claimAmount: disruptionFactor.lossAmount || 0,
-                trustScore: decision.trust_score,
+                amount: disruptionFactor.lossAmount || 0,
+                trustScore: decision.trustScore,
                 status: decision.status,
                 payout: decision.payout,
                 reputationScore: profile.reputation,
-                reasons: decision.reasons
+                reasons: decision.reasons,
+                adjustments: decision.adjustments,
+                location: location || { zone: user.zone },
+                deviceInfo: deviceInfo || {},
+                externalData
             });
 
             return sendSuccess(res, { message: "Disruption severity too low.", decision });
         }
         
-        // Evaluate trust score mapping
-        let claimDecision = await trustScoreService.evaluateClaim(workerId, disruptionFactor, profile);
+        // Create claim object for scoring
+        const claim = new Claim({
+            workerId: workerId,
+            policyId: activePolicy._id,
+            trigger: disruptionFactor.type,
+            amount: disruptionFactor.lossAmount || Math.min(activePolicy.maxPayoutPerEvent, activePolicy.coverageAmount * 0.1),
+            location: location || { zone: user.zone },
+            deviceInfo: deviceInfo || {},
+            externalData
+        });
 
-        // Ensure graceful fallback in case AI microservice failed entirely
-        if (!claimDecision || claimDecision.status === 'ERROR') {
-            claimDecision = typeof trustScoreService.buildLocalFallbackDecision === 'function'
-                ? trustScoreService.buildLocalFallbackDecision(workerId, disruptionFactor, profile)
-                : {
-                    status: 'REJECTED',
-                    trust_score: 50,
-                    reasons: ['Local fallback used because AI evaluation was unavailable'],
-                    adjustments: [],
-                    aiConfidence: 0.5
-                };
-            claimDecision.source = claimDecision.source || 'route_fallback';
-        }
+        // Evaluate trust score
+        const scoringResult = await trustScoreService.scoreClaim(claim, profile);
 
-        const payoutAmount = claimDecision.status === 'APPROVED' ? (disruptionFactor.lossAmount || 400) : 0;
+        claim.trustScore = scoringResult.trustScore;
+        claim.adjustments = scoringResult.adjustments;
+        claim.reasons = scoringResult.reasons;
+        claim.status = scoringResult.status;
 
-        try {
-            const savedClaim = await Claim.create({
-                workerId: workerId,
-                trigger: disruptionFactor.type,
-                claimAmount: disruptionFactor.lossAmount || 0,
-                trustScore: claimDecision.trust_score,
-                status: claimDecision.status,
-                payout: payoutAmount,
-                reputationScore: profile.reputation,
-                reasons: claimDecision.reasons
-            });
-
-            if (savedClaim.status === 'APPROVED') {
-                try {
-                    await payoutService.processPayout(savedClaim);
-                } catch (err) {
-                    console.error("Payout error:", err);
-                }
+        if (scoringResult.status === 'APPROVED') {
+            claim.payout = claim.amount;
+            try {
+                await payoutService.processPayout(claim);
+            } catch (err) {
+                console.error("Payout error:", err);
+                claim.status = 'VERIFY'; // Require manual review if payout fails
+                claim.resolutionNote = `Auto-approved but payout failed: ${err.message}`;
             }
-        } catch (persistError) {
-            console.warn("Claim persistence failed, returning evaluation anyway:", persistError.message);
         }
+
+        await claim.save();
         
         return sendSuccess(res, {
             message: "Claim processing completed",

@@ -15,6 +15,9 @@ mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/geoshield')
   .then(() => console.log('✅ Connected to MongoDB GeoShield-AI successfully!'))
   .catch(err => console.error('❌ MongoDB Connection Error:', err.message));
 
+// Start background jobs
+require('./services/backgroundJobs');
+
 app.use(express.json());
 app.use(cors());
 app.use(helmet());
