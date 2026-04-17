@@ -4,11 +4,11 @@ const { sendSuccess, sendError } = require('../utils/http');
 const externalDataService = require('../services/externalDataService');
 
 router.get('/zone-risk', (req, res) => {
-    // Return mock heatmap data for admin dashboard
     return sendSuccess(res, {
         zones: [
-            { lat: 28.7041, lng: 77.1025, risk_level: "HIGH", reason: "Severe Heatwave" },
-            { lat: 19.0760, lng: 72.8777, risk_level: "MEDIUM", reason: "Heavy Rain" }
+            { lat: 28.6139, lng: 77.2090, risk_level: "HIGH", reason: "Severe AQI with reduced outdoor work tolerance during peak delivery hours" },
+            { lat: 19.0760, lng: 72.8777, risk_level: "MEDIUM", reason: "Localized heavy rain is slowing rider throughput near coastal routes" },
+            { lat: 12.9716, lng: 77.5946, risk_level: "LOW", reason: "Road conditions and platform uptime remain stable across the core service zone" }
         ]
     });
 });

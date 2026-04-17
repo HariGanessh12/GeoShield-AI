@@ -1,10 +1,44 @@
 {
-  "users": [
-    { "id": "u101", "name": "Rahul Delivery", "zone": "Delhi South", "policy_active": true },
-    { "id": "u102", "name": "Amit Logistics", "zone": "Mumbai North", "policy_active": true }
+  "logins": [
+    { "email": "admin@gmail.com", "password": "password", "role": "admin" },
+    { "email": "user@gmail.com", "password": "password", "role": "worker" }
   ],
+  "worker_profile": {
+    "email": "user@gmail.com",
+    "personaType": "FOOD_DELIVERY",
+    "zone": "Delhi NCR",
+    "workingHours": 8,
+    "avgDailyTrips": 22,
+    "reputationScore": 91
+  },
+  "policy_snapshot": {
+    "premiumPaid": 315,
+    "coverageAmount": 4200,
+    "maxPayoutPerEvent": 650,
+    "status": "active",
+    "shiftState": "ON"
+  },
   "claims_history": [
-    { "workerId": "u101", "disruptionType": "HEATWAVE", "claimAmount": 200, "status": "APPROVED", "date": "2026-03-01" },
-    { "workerId": "u101", "disruptionType": "POLLUTION", "claimAmount": 150, "status": "APPROVED", "date": "2026-03-10" }
+    {
+      "trigger": "HEAVY_RAIN",
+      "amount": 245,
+      "status": "APPROVED",
+      "payout": 245,
+      "summary": "Approved after rainfall severity crossed payout threshold during an active shift"
+    },
+    {
+      "trigger": "TRAFFIC_SURGE",
+      "amount": 180,
+      "status": "REJECTED",
+      "payout": 0,
+      "summary": "Rejected because corridor congestion stayed below the insured trigger band"
+    },
+    {
+      "trigger": "AQI_SEVERE",
+      "amount": 320,
+      "status": "VERIFY",
+      "payout": 0,
+      "summary": "Queued for admin review due to low GPS confidence on an otherwise valid AQI event"
+    }
   ]
 }

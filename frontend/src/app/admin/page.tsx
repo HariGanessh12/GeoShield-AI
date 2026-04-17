@@ -43,6 +43,9 @@ export default function AdminDashboard() {
   const [dashboard, setDashboard] = React.useState<AdminDashboardResponse | null>(null);
   const [queue, setQueue] = React.useState<ReviewClaim[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [reviewingClaimId, setReviewingClaimId] = React.useState<string | null>(null);
+  const [actionMessage, setActionMessage] = React.useState<string>("");
+  const [actionError, setActionError] = React.useState<string>("");
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => setMounted(true));
@@ -74,11 +77,21 @@ export default function AdminDashboard() {
   };
 
   const reviewClaim = async (claimId: string, status: "APPROVED" | "REJECTED") => {
-    await apiFetch(`/api/claim/admin/${claimId}/review`, {
-      method: "PATCH",
-      body: JSON.stringify({ status }),
-    });
-    await loadAdminData();
+    setReviewingClaimId(claimId);
+    setActionMessage("");
+    setActionError("");
+    try {
+      await apiFetch(`/api/claim/admin/${claimId}/review`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+      setActionMessage(`Claim ${status === "APPROVED" ? "approved" : "rejected"} successfully.`);
+      await loadAdminData();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Could not update claim review.");
+    } finally {
+      setReviewingClaimId(null);
+    }
   };
 
   const handleLogout = () => {
@@ -176,6 +189,16 @@ export default function AdminDashboard() {
                     <svg className="w-5 h-5 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                     Live claims review queue
                 </h3>
+                {actionMessage ? (
+                  <div className="mb-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100 light-mode:border-emerald-200 light-mode:bg-emerald-50 light-mode:text-emerald-700">
+                    {actionMessage}
+                  </div>
+                ) : null}
+                {actionError ? (
+                  <div className="mb-4 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100 light-mode:border-rose-200 light-mode:bg-rose-50 light-mode:text-rose-700">
+                    {actionError}
+                  </div>
+                ) : null}
                 <div className="grid gap-4 md:grid-cols-3 mb-6">
                   <div className="rounded-2xl border border-white/10 bg-black/20 p-4 light-mode:border-black/10 light-mode:bg-white">
                     <p className="text-xs uppercase tracking-[0.18em] text-white/45 light-mode:text-slate-500">Premium Collected</p>
@@ -220,11 +243,19 @@ export default function AdminDashboard() {
                           <span>Payout: {formatCurrency(claim.payout)}</span>
                         </div>
                         <div className="mt-4 flex gap-3">
-                          <button onClick={() => reviewClaim(claim._id, "APPROVED")} className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-bold text-slate-950 transition hover:bg-emerald-400">
-                            Approve
+                          <button
+                            onClick={() => reviewClaim(claim._id, "APPROVED")}
+                            disabled={reviewingClaimId === claim._id}
+                            className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-bold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {reviewingClaimId === claim._id ? "Processing..." : "Approve"}
                           </button>
-                          <button onClick={() => reviewClaim(claim._id, "REJECTED")} className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2 text-sm font-bold text-rose-200 transition hover:bg-rose-500/20 light-mode:text-rose-700">
-                            Reject
+                          <button
+                            onClick={() => reviewClaim(claim._id, "REJECTED")}
+                            disabled={reviewingClaimId === claim._id}
+                            className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2 text-sm font-bold text-rose-200 transition hover:bg-rose-500/20 light-mode:text-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {reviewingClaimId === claim._id ? "Processing..." : "Reject"}
                           </button>
                         </div>
                       </div>

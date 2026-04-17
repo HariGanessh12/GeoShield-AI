@@ -39,6 +39,39 @@ function normalizePolicy(policy) {
     };
 }
 
+async function syncPolicyClaimTotals(policyId) {
+    if (!policyId) return;
+
+    const policy = await Policy.findById(policyId);
+    if (!policy) return;
+
+    const approvedSummary = await Claim.aggregate([
+        {
+            $match: {
+                policyId: mongoose.Types.ObjectId.isValid(String(policyId))
+                    ? new mongoose.Types.ObjectId(String(policyId))
+                    : policyId,
+                status: 'APPROVED'
+            }
+        },
+        {
+            $group: {
+                _id: null,
+                totalClaimsPaid: { $sum: { $ifNull: ['$payout', 0] } }
+            }
+        }
+    ]);
+
+    const totalClaimsPaid = Number(approvedSummary[0]?.totalClaimsPaid || 0);
+    policy.totalClaimsPaid = totalClaimsPaid;
+    policy.totalPremiumCollected = Number(policy.totalPremiumCollected || policy.premiumPaid || 0);
+    policy.lossRatio = policy.totalPremiumCollected > 0
+        ? totalClaimsPaid / policy.totalPremiumCollected
+        : 0;
+
+    await policy.save();
+}
+
 async function processClaimForWorker({
     workerId,
     disruptionFactor,
@@ -629,8 +662,17 @@ router.get('/admin/review-queue', async (req, res) => {
             return sendError(res, 403, "Access denied. Admin privileges required.");
         }
 
-        const claims = await Claim.find({ status: { $in: ['VERIFY', 'REJECTED', 'APPROVED'] } }).sort({ createdAt: -1 }).limit(20);
-        return sendSuccess(res, { claims });
+        const claims = await Claim.find({ status: 'VERIFY' })
+            .sort({ createdAt: -1 })
+            .limit(20)
+            .lean();
+
+        return sendSuccess(res, {
+            claims: claims.map((claim) => ({
+                ...claim,
+                claimAmount: Number(claim.amount || 0)
+            }))
+        });
     } catch (error) {
         console.error("Claim review queue error:", error);
         return sendError(res, 500, "Could not load claim review queue");
@@ -653,20 +695,36 @@ router.patch('/admin/:id/review', async (req, res) => {
             return sendError(res, 404, "Claim not found");
         }
 
+        if (claim.status !== 'VERIFY') {
+            return sendError(res, 409, "Claim is no longer pending review.");
+        }
+
         claim.status = String(status).toUpperCase();
         claim.reviewedBy = String(req.user.id);
         claim.reviewedAt = new Date();
         claim.resolutionNote = String(note || '').trim();
-        claim.payout = claim.status === 'APPROVED' ? (claim.amount || claim.payout || 0) : 0;
-        await claim.save();
 
         if (claim.status === 'APPROVED') {
+            claim.payout = Number(claim.amount || claim.payout || 0);
+            claim.payoutStatus = 'PENDING';
+            await claim.save();
+
             try {
                 await payoutService.processPayout(claim);
             } catch (err) {
                 console.error("Payout processing error during manual review:", err);
+                claim.status = 'VERIFY';
+                claim.resolutionNote = `Manual approval attempted but payout failed: ${err.message}`;
+                await claim.save();
+                return sendError(res, 500, "Claim payout failed during approval. Review remains pending.");
             }
+        } else {
+            claim.payout = 0;
+            claim.payoutStatus = 'NOT_APPLICABLE';
+            await claim.save();
         }
+
+        await syncPolicyClaimTotals(claim.policyId);
 
         return sendSuccess(res, { message: "Claim review updated", claim });
     } catch (error) {
