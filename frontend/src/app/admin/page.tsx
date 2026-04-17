@@ -94,13 +94,13 @@ export default function AdminDashboard() {
 
       <nav className="relative z-10 flex items-center justify-between px-8 py-6 border-b border-white/5 backdrop-blur-xl bg-[#0d0f17]/50 light-mode:border-black/5 light-mode:bg-white/50">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-500 to-orange-500 flex items-center justify-center shadow-lg shadow-rose-500/30">
+          <div className="w-10 h-10 rounded-xl bg-linear-to-tr from-rose-500 to-orange-500 flex items-center justify-center shadow-lg shadow-rose-500/30">
             <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
             </svg>
           </div>
           <div>
-              <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60 light-mode:from-slate-900 light-mode:to-slate-600">Command Center</h1>
+              <h1 className="text-xl font-bold bg-clip-text text-transparent bg-linear-to-r from-white to-white/60 light-mode:from-slate-900 light-mode:to-slate-600">Command Center</h1>
               <p className="text-[10px] uppercase tracking-widest text-rose-400 font-bold">Admin Privileges Active</p>
           </div>
         </div>
@@ -117,14 +117,14 @@ export default function AdminDashboard() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, staggerChildren: 0.1 }}
-        className="relative z-10 max-w-[1400px] mx-auto px-6 py-12"
+        className="relative z-10 max-w-350 mx-auto px-6 py-12"
       >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.1 }}
-              className="bg-white/[0.02] border border-white/5 rounded-3xl p-6 shadow-2xl hover:bg-white/[0.04] transition-colors light-mode:bg-white light-mode:border-black/5 light-mode:shadow-xl"
+              className="bg-white/2 border border-white/5 rounded-3xl p-6 shadow-2xl hover:bg-white/4 transition-colors light-mode:bg-white light-mode:border-black/5 light-mode:shadow-xl"
             >
                 <span className="text-gray-400 text-xs font-bold uppercase tracking-wider light-mode:text-slate-500">Total Claims Processed</span>
                 <span className="block text-4xl font-black mt-2 text-white light-mode:text-slate-900">{loading ? "..." : dashboard?.claims.total ?? 0}</span>
@@ -146,7 +146,7 @@ export default function AdminDashboard() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.3 }}
-              className="bg-white/[0.02] border border-white/5 rounded-3xl p-6 shadow-2xl hover:bg-white/[0.04] transition-colors light-mode:bg-white light-mode:border-black/5 light-mode:shadow-xl"
+              className="bg-white/2 border border-white/5 rounded-3xl p-6 shadow-2xl hover:bg-white/4 transition-colors light-mode:bg-white light-mode:border-black/5 light-mode:shadow-xl"
             >
                 <span className="text-gray-400 text-xs font-bold uppercase tracking-wider light-mode:text-slate-500">Portfolio Status</span>
                 <span className="block text-xl font-bold mt-2 text-amber-400 light-mode:text-amber-600">{loading ? "Loading..." : dashboard?.financials.status ?? "N/A"}</span>
@@ -159,7 +159,7 @@ export default function AdminDashboard() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
-              className="bg-white/[0.02] backdrop-blur-2xl border border-white/5 rounded-[2rem] p-8 shadow-2xl hover:border-white/10 transition-colors light-mode:bg-white/80 light-mode:border-black/5 light-mode:shadow-xl xl:col-span-2"
+              className="bg-white/2 backdrop-blur-2xl border border-white/5 rounded-4xl p-8 shadow-2xl hover:border-white/10 transition-colors light-mode:bg-white/80 light-mode:border-black/5 light-mode:shadow-xl xl:col-span-2"
             >
                 <h3 className="text-xl font-semibold mb-6 flex items-center gap-2 border-b border-white/5 pb-4 light-mode:border-black/5 light-mode:text-slate-900">
                     <svg className="w-5 h-5 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
@@ -221,7 +221,7 @@ export default function AdminDashboard() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 }}
-              className="bg-white/[0.02] backdrop-blur-2xl border border-white/5 rounded-[2rem] p-8 shadow-2xl hover:border-white/10 transition-colors light-mode:bg-white/80 light-mode:border-black/5 light-mode:shadow-xl xl:col-span-1"
+              className="bg-white/2 backdrop-blur-2xl border border-white/5 rounded-4xl p-8 shadow-2xl hover:border-white/10 transition-colors light-mode:bg-white/80 light-mode:border-black/5 light-mode:shadow-xl xl:col-span-1"
             >
                 <h3 className="text-xl font-semibold mb-6 flex items-center gap-2 border-b border-white/5 pb-4 light-mode:border-black/5 light-mode:text-slate-900">
                     <svg className="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
