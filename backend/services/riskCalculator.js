@@ -83,22 +83,19 @@ function calculatePremium(input) {
     const final_probability = adjusted_probability * (1 - reputation_discount);
 
     // Actuarial calculations
-    const AVERAGE_PAYOUT = 400.0;
+    const claim_probability = typeof input.claim_probability === 'number'
+        ? Math.min(Math.max(input.claim_probability, 0), 1)
+        : final_probability;
+
+    const AVG_PAYOUT_PER_EVENT = Number(input.avg_payout_per_event) || 400.0;
     const PLATFORM_FEE = 15.0;
-    const OPERATIONAL_COST = 25.0;
-    const CAPITAL_CHARGE = 0.15;
+    const RISK_MARGIN_RATE = 0.30;
+    const MINIMUM_PREMIUM = 55.0;
 
-    const expected_loss = final_probability * AVERAGE_PAYOUT;
-    const operational_cost = OPERATIONAL_COST * (1 + final_probability * 2);
-    const capital_charge = expected_loss * CAPITAL_CHARGE;
-
-    // Premium with profit margin
-    const PROFIT_MARGIN = 0.08;
-    const total_cost = expected_loss + operational_cost + capital_charge + PLATFORM_FEE;
-    let weekly_premium = total_cost * (1 + PROFIT_MARGIN);
-
-    // Apply caps
-    weekly_premium = Math.max(45.0, Math.min(weekly_premium, 350.0));
+    const expected_loss = claim_probability * AVG_PAYOUT_PER_EVENT;
+    const risk_margin = expected_loss * RISK_MARGIN_RATE;
+    const premium_before_floor = expected_loss + risk_margin + PLATFORM_FEE;
+    let weekly_premium = Math.max(MINIMUM_PREMIUM, premium_before_floor);
 
     // Risk categorization
     const risk_score = (final_probability / 0.25) * 100;
@@ -108,24 +105,23 @@ function calculatePremium(input) {
 
     // Breakdown for transparency
     const breakdown = {
-        'Expected Loss': `₹${expected_loss.toFixed(2)} (${(final_probability * 100).toFixed(1)}% × ₹${AVERAGE_PAYOUT})`,
-        'Operational Cost': `₹${operational_cost.toFixed(2)}`,
-        'Capital Charge (15%)': `₹${capital_charge.toFixed(2)}`,
-        'Platform Fee': `₹${PLATFORM_FEE}`,
-        'Profit Margin (8%)': `₹${(total_cost * PROFIT_MARGIN).toFixed(2)}`,
-        'Persona Adjustment': `${persona_multiplier.toFixed(2)}x (${persona_type})`,
-        'Zone Adjustment': `${zone_multiplier.toFixed(2)}x (${zone})`,
-        'Reputation Discount': `${(reputation_discount * 100).toFixed(1)}%`,
-        'Credibility Weight': `${credibility.toFixed(2)}`
+        'Base Premium': `₹${expected_loss.toFixed(2)} (${(claim_probability * 100).toFixed(1)}% × ₹${AVG_PAYOUT_PER_EVENT})`,
+        'Risk Margin': `₹${risk_margin.toFixed(2)}`,
+        'Platform Fee': `₹${PLATFORM_FEE.toFixed(2)}`,
+        'Final Premium': `₹${weekly_premium.toFixed(2)}`
     };
 
-    const loss_ratio_projection = (expected_loss / weekly_premium) * 100;
+    const loss_ratio_projection = weekly_premium > 0 ? (expected_loss / weekly_premium) * 100 : 0;
 
     return {
         risk_level,
         risk_score: Math.round(risk_score * 10) / 10,
         weekly_premium_inr: Math.round(weekly_premium * 100) / 100,
         expected_loss: Math.round(expected_loss * 100) / 100,
+        risk_margin: Math.round(risk_margin * 100) / 100,
+        platform_fee: Math.round(PLATFORM_FEE * 100) / 100,
+        base_premium: Math.round(expected_loss * 100) / 100,
+        final_premium: Math.round(weekly_premium * 100) / 100,
         final_probability: Math.round(final_probability * 10000) / 10000,
         credibility: Math.round(credibility * 100) / 100,
         breakdown,

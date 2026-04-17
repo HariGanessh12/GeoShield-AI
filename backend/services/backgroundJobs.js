@@ -2,44 +2,90 @@ const cron = require('node-cron');
 const mongoose = require('mongoose');
 const Policy = require('../models/policy');
 const Claim = require('../models/claim');
+const User = require('../models/user');
+const SystemStatus = require('../models/systemStatus');
 const { getExternalData } = require('./externalDataService');
 const { scoreClaim } = require('./trustScore');
 const { processPayout } = require('./payoutService');
 
-// Automated claim trigger job - runs every 5 minutes
-cron.schedule('*/5 * * * *', async () => {
-    console.log('Running automated claim trigger job...');
+const SCAN_INTERVAL_MINUTES = 15;
+
+async function upsertSystemStatus(data) {
+    return SystemStatus.findOneAndUpdate(
+        { name: 'automatedTriggerMonitor' },
+        { $set: data },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+}
+
+function getNextScanTime(from = new Date()) {
+    return new Date(from.getTime() + SCAN_INTERVAL_MINUTES * 60 * 1000);
+}
+
+// Automated claim trigger job - runs every 15 minutes
+cron.schedule('*/15 * * * *', async () => {
+    const now = new Date();
+    const nextScanAt = getNextScanTime(now);
+    console.log('Running automated claim trigger job...', now.toISOString());
+
+    await upsertSystemStatus({
+        lastScanAt: now,
+        nextScanAt,
+        scanIntervalMinutes: SCAN_INTERVAL_MINUTES
+    });
 
     try {
         // Find active policies with shift ON
         const activePolicies = await Policy.find({
-            status: 'ACTIVE',
+            status: 'active',
             shiftState: 'ON',
-            expiresAt: { $gt: new Date() }
-        }).populate('workerId');
+            endDate: { $gt: new Date() }
+        });
 
+        const detectedTriggers = [];
         for (const policy of activePolicies) {
             try {
-                // Check for eligible disruption events
-                const eligibleEvents = await checkForDisruptions(policy);
+                const worker = await User.findById(policy.workerId).lean();
+                if (!worker) {
+                    console.warn(`Skipping policy ${policy._id} because worker ${policy.workerId} cannot be loaded.`);
+                    continue;
+                }
+
+                const eligibleEvents = await checkForDisruptions(policy, worker.zone);
 
                 for (const event of eligibleEvents) {
-                    // Check if claim already exists for this event in last 2 hours
+                    const duplicateWindow = 60 * 60 * 1000; // 1 hour
                     const existingClaim = await Claim.findOne({
-                        workerId: policy.workerId._id,
+                        workerId: policy.workerId,
                         policyId: policy._id,
                         trigger: event.eventType,
-                        createdAt: { $gt: new Date(Date.now() - 2 * 60 * 60 * 1000) }
+                        automated: true,
+                        createdAt: { $gt: new Date(Date.now() - duplicateWindow) }
                     });
 
                     if (!existingClaim) {
-                        // Auto-trigger claim
-                        await autoTriggerClaim(policy, event);
+                        const claim = await autoTriggerClaim(policy, worker, event);
+                        detectedTriggers.push({
+                            policyId: policy._id,
+                            workerId: policy.workerId,
+                            trigger: event.eventType,
+                            severityScore: event.severityScore,
+                            claimId: claim?._id || null,
+                            status: claim?.status || 'FAILED',
+                            detectedAt: new Date()
+                        });
                     }
                 }
             } catch (error) {
                 console.error(`Error processing policy ${policy._id}:`, error);
             }
+        }
+
+        if (detectedTriggers.length > 0) {
+            await upsertSystemStatus({
+                lastTriggerDetected: detectedTriggers[detectedTriggers.length - 1],
+                triggersDetected: detectedTriggers
+            });
         }
     } catch (error) {
         console.error('Automated claim trigger job failed:', error);
@@ -100,13 +146,13 @@ cron.schedule('0 6 * * *', async () => {
     }
 });
 
-async function checkForDisruptions(policy) {
+async function checkForDisruptions(policy, zone) {
     const eligibleEvents = [];
-    const worker = policy.workerId;
+    const workerZone = zone || 'Delhi NCR';
 
-    for (const eventType of policy.coveredEvents) {
+    for (const eventType of policy.coveredEvents || []) {
         try {
-            const externalData = await getExternalData(eventType, worker.zone);
+            const externalData = await getExternalData(eventType, workerZone);
 
             // Check if severity meets threshold
             if (externalData.severityScore >= 0.5) {
@@ -114,7 +160,8 @@ async function checkForDisruptions(policy) {
                     eventType,
                     severityScore: externalData.severityScore,
                     baseProbability: externalData.baseProbability,
-                    externalData
+                    externalData,
+                    reason: `Automated trigger detected for ${eventType} in ${workerZone}`
                 });
             }
         } catch (error) {
@@ -125,23 +172,25 @@ async function checkForDisruptions(policy) {
     return eligibleEvents;
 }
 
-async function autoTriggerClaim(policy, event) {
-    const worker = policy.workerId;
+async function autoTriggerClaim(policy, worker, event) {
+    const requestedAmount = Math.min(policy.maxPayoutPerEvent, policy.coverageAmount * 0.1);
 
-    // Create claim
     const claim = new Claim({
-        workerId: worker._id,
+        workerId: policy.workerId,
         policyId: policy._id,
         trigger: event.eventType,
-        amount: Math.min(policy.maxPayoutPerEvent, policy.coverageAmount * 0.1), // 10% of coverage
+        amount: requestedAmount,
         status: 'PENDING',
         automated: true,
         location: {
-            zone: worker.zone,
-            // In production, would get real GPS from worker device
-            coordinates: { lat: 0, lng: 0 }
+            zone: worker.zone || 'Delhi NCR',
+            coordinates: {
+                lat: worker.location?.coordinates?.lat || 0,
+                lng: worker.location?.coordinates?.lng || 0
+            }
         },
-        externalData: event.externalData
+        externalData: event.externalData,
+        reasons: [event.reason]
     });
 
     // Score the claim

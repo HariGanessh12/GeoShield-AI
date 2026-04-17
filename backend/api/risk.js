@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { sendSuccess, sendError } = require('../utils/http');
+const externalDataService = require('../services/externalDataService');
 
 router.get('/zone-risk', (req, res) => {
     // Return mock heatmap data for admin dashboard
@@ -10,6 +11,26 @@ router.get('/zone-risk', (req, res) => {
             { lat: 19.0760, lng: 72.8777, risk_level: "MEDIUM", reason: "Heavy Rain" }
         ]
     });
+});
+
+router.get('/weather-metadata', async (req, res) => {
+    try {
+        const user = req.user; // Assuming user is set by auth middleware
+        const zone = user?.zone || 'Delhi NCR';
+        const coords = { lat: 28.7041, lon: 77.1025 }; // Default to Delhi NCR, could map zones
+
+        // Get weather data which includes metadata
+        const weatherData = await externalDataService.getWeatherData(coords.lat, coords.lon, zone, 'NORMAL');
+
+        return sendSuccess(res, weatherData.metadata);
+    } catch (error) {
+        console.error('[Risk API] Weather metadata error:', error.message);
+        return sendSuccess(res, {
+            source_name: 'Fallback Mock Data',
+            last_updated_timestamp: new Date().toISOString(),
+            location: 'Unknown'
+        });
+    }
 });
 
 router.post('/premium-breakdown', async (req, res) => {
@@ -35,7 +56,19 @@ router.post('/premium-breakdown', async (req, res) => {
         
         const premiumData = await response.json();
         console.log("[Backend] ML microservice response received.");
-        return sendSuccess(res, premiumData);
+        
+        // Standardize the response format
+        const standardizedResponse = {
+            base_premium: premiumData.expected_loss || 0,
+            risk_adjustment: premiumData.risk_margin || 0,
+            platform_fee: 15.0,
+            final_premium: premiumData.weekly_premium_inr || premiumData.final_premium || 0,
+            risk_level: premiumData.risk_level,
+            risk_score: premiumData.risk_score,
+            breakdown: premiumData.breakdown || {}
+        };
+        
+        return sendSuccess(res, standardizedResponse);
     } catch(err) {
         console.error("[Backend] FastAPI connection failed, using local fallback. Error:", err.message);
         
@@ -56,7 +89,7 @@ router.post('/premium-breakdown', async (req, res) => {
 
             const expected_loss = adjusted_probability * 1000.0;
             const risk_margin = expected_loss * 0.30;
-            const weekly_premium = Math.min(Math.max(expected_loss + risk_margin + 15.0, 50.0), 300.0);
+            const weekly_premium = Math.max(55.0, expected_loss + risk_margin + 15.0);
 
             const risk_score = (adjusted_probability / 0.30) * 100;
             let risk_level = "LOW";
@@ -64,16 +97,17 @@ router.post('/premium-breakdown', async (req, res) => {
             else if (risk_score > 30) risk_level = "MEDIUM";
 
             const payload = {
+                base_premium: Math.round(expected_loss * 100) / 100,
+                risk_adjustment: Math.round(risk_margin * 100) / 100,
+                platform_fee: 15.0,
+                final_premium: Math.round(weekly_premium * 100) / 100,
                 risk_level,
                 risk_score: Math.round(risk_score * 100) / 100,
-                weekly_premium_inr: Math.round(weekly_premium * 100) / 100,
-                expected_loss: Math.round(expected_loss * 100) / 100,
-                risk_margin: Math.round(risk_margin * 100) / 100,
                 breakdown: {
-                    "Expected Loss (Probability x Payout)": `₹${Math.round(expected_loss * 100) / 100}`,
-                    "Risk Margin (30%)": `₹${Math.round(risk_margin * 100) / 100}`,
+                    "Base Premium": `₹${Math.round(expected_loss * 100) / 100}`,
+                    "Risk Adjustment": `₹${Math.round(risk_margin * 100) / 100}`,
                     "Platform Fee": "₹15.0",
-                    "Persona Multiplier Applied": `${persona_multiplier}x (${persona})`
+                    "Final Premium": `₹${Math.round(weekly_premium * 100) / 100}`
                 },
                 is_mock: true
             };

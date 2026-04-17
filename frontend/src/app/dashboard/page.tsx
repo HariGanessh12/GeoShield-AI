@@ -27,6 +27,19 @@ type WorkerSummaryResponse = {
   recentToggles: Array<{ previousState: "ON" | "OFF"; currentState: "ON" | "OFF"; reason?: string; source?: string; createdAt: string }>;
   autoShutoffApplied?: boolean;
 };
+type SystemStatusResponse = {
+  lastScanAt: string | null;
+  nextScanAt: string | null;
+  lastTriggerDetected: string | null;
+  triggersDetected: Array<Record<string, unknown> | string>;
+  scanIntervalMinutes: number;
+};
+type WeatherMetadataResponse = {
+  source_name: string;
+  last_updated_timestamp: string;
+  location: string;
+};
+
 const zoneInputs: Record<string, { weather: number; traffic: number; location: number }> = {
   "Delhi NCR": { weather: 72, traffic: 80, location: 68 },
   "Mumbai South": { weather: 88, traffic: 76, location: 74 },
@@ -68,6 +81,17 @@ function formatRelativeTime(value: string) {
   return `${absDays} day${absDays === 1 ? "" : "s"} ${diffMs < 0 ? "ago" : "from now"}`;
 }
 
+function formatTimestamp(value: string | null | undefined) {
+  if (!value) return "Unavailable";
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false);
   const [claims, setClaims] = useState<Claim[]>([]);
@@ -83,6 +107,14 @@ export default function DashboardPage() {
   const [warningDismissed, setWarningDismissed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [systemStatus, setSystemStatus] = useState<SystemStatusResponse>({
+    lastScanAt: null,
+    nextScanAt: null,
+    lastTriggerDetected: null,
+    triggersDetected: [],
+    scanIntervalMinutes: 15,
+  });
+  const [weatherMetadata, setWeatherMetadata] = useState<WeatherMetadataResponse | null>(null);
   const [showToggleModal, setShowToggleModal] = useState(false);
   const [modalRiskData, setModalRiskData] = useState<ZoneRiskResponse | null>(null);
   const [toastMessage, setToastMessage] = useState("");
@@ -102,7 +134,7 @@ export default function DashboardPage() {
     setToggleError("");
     try {
       const inputs = zoneInputs[user.zone || "Delhi NCR"] || zoneInputs["Delhi NCR"];
-      const [claimsData, policyData, riskData, premiumData] = await Promise.all([
+      const [claimsData, policyData, riskData, premiumData, systemStatusData, weatherMetadataData] = await Promise.all([
         apiFetch<Claim[]>("/api/claim/history"),
         apiFetch<PolicyResponse>("/api/policy/current"),
         apiFetch<ZoneRiskResponse>("/api/risk/zone-risk"),
@@ -115,6 +147,8 @@ export default function DashboardPage() {
             persona_type: user.personaType || "FOOD_DELIVERY"
           })
         }),
+        apiFetch<SystemStatusResponse>("/system/status"),
+        apiFetch<WeatherMetadataResponse>("/api/risk/weather-metadata"),
       ]);
       const workerData = await apiFetch<WorkerSummaryResponse>(`/api/worker/${user.id}/summary`);
       const policySummaryData = await apiFetch<PolicySummaryResponse>(`/api/worker/${user.id}/policy/summary`);
@@ -126,6 +160,8 @@ export default function DashboardPage() {
       setPolicyToggleState(workerData.shiftState || workerData.currentPolicy?.shiftState || "OFF");
       setPolicyHistory(workerData.recentToggles.slice(0, 3));
       setPolicySummary(policySummaryData);
+      setSystemStatus(systemStatusData);
+      setWeatherMetadata(weatherMetadataData);
 
       const latestReason = workerData.recentToggles[0]?.reason || "";
       if (latestReason.toLowerCase().includes("auto-shutoff")) {
@@ -144,7 +180,13 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!mounted) return;
+
     void loadDashboardData();
+    const polling = window.setInterval(() => {
+      void loadDashboardData({ showLoading: false });
+    }, 15000);
+
+    return () => window.clearInterval(polling);
   }, [mounted]);
 
   if (!mounted) return null;
@@ -155,6 +197,39 @@ export default function DashboardPage() {
   const previousScore = claims[1]?.trustScore;
   const delta = previousScore !== undefined ? currentScore - previousScore : 0;
   const currentPolicyState = policyToggleState;
+
+  const monitoringStatus = systemStatus.lastScanAt && systemStatus.nextScanAt && new Date(systemStatus.nextScanAt).getTime() > Date.now()
+    ? "active"
+    : "failure";
+
+  const lastAutoClaim = claims.find((claim) => claim.trigger === systemStatus.lastTriggerDetected) || claims[0];
+
+  const automationTimeline = [
+    {
+      title: "Trigger detected",
+      description: systemStatus.lastTriggerDetected
+        ? `Detected trigger: ${systemStatus.lastTriggerDetected}`
+        : "No trigger detected yet.",
+      timestamp: systemStatus.lastScanAt,
+      tone: systemStatus.lastTriggerDetected ? "success" : "warning",
+    },
+    {
+      title: "Claim auto-created",
+      description: lastAutoClaim
+        ? `Auto claim created with status ${lastAutoClaim.status}`
+        : "No auto claim has been created yet.",
+      timestamp: lastAutoClaim?.createdAt || null,
+      tone: lastAutoClaim ? (lastAutoClaim.status.toUpperCase() === "REJECTED" ? "danger" : "success") : "warning",
+    },
+    {
+      title: "Claim processed",
+      description: lastClaim
+        ? `${lastClaim.status} ${lastClaim.createdAt ? `(${formatRelativeTime(lastClaim.createdAt)})` : ""}`
+        : "Claim processing pending.",
+      timestamp: lastClaim?.createdAt || null,
+      tone: lastClaim ? statusTone(lastClaim.status) : "warning",
+    },
+  ];
 
   // Determine contextual banner content
   const contextualBanner = (() => {
@@ -329,10 +404,23 @@ export default function DashboardPage() {
           <p className="mt-3 text-sm opacity-80">Coverage up to {formatCurrency(policy?.coverageAmount)}</p>
         </motion.div>
         
-        <motion.div variants={itemVariants} className="rounded-[1.75rem] border border-white/10 bg-black/20 p-6 shadow-lg transition-transform hover:scale-[1.02] light-mode:border-black/10 light-mode:bg-white/80">
+        <motion.div variants={itemVariants} className="rounded-[1.75rem] border border-white/10 bg-black/20 p-6 shadow-lg transition-transform hover:scale-[1.02] light-mode:border-black/10 light-mode:bg-white/80 group relative">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/50 light-mode:text-slate-500">Current Premium</p>
-          <h2 className="mt-4 text-3xl font-black text-white light-mode:text-slate-900">{formatCurrency(premium?.weekly_premium_inr || policy?.premiumPaid)}</h2>
+          <h2 className="mt-4 text-3xl font-black text-white light-mode:text-slate-900">{formatCurrency(premium?.final_premium || policy?.premiumPaid)}</h2>
           <Link href="/risk" className="mt-3 inline-flex text-sm font-semibold text-sky-300 light-mode:text-sky-700 hover:underline">See breakdown</Link>
+          
+          {/* Premium breakdown tooltip */}
+          {premium && (
+            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-slate-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10 shadow-lg">
+              <div className="font-semibold mb-1">Premium Breakdown</div>
+              <div>Base: {formatCurrency(premium.base_premium)}</div>
+              <div>Risk: +{formatCurrency(premium.risk_adjustment)}</div>
+              <div>Fee: +{formatCurrency(premium.platform_fee)}</div>
+              <div className="border-t border-slate-600 mt-1 pt-1 font-semibold">
+                Total: {formatCurrency(premium.final_premium)}
+              </div>
+            </div>
+          )}
         </motion.div>
 
         <motion.div variants={itemVariants} className={`rounded-[1.75rem] border p-6 shadow-lg transition-transform hover:scale-[1.02] ${toneClass[statusTone(lastClaim?.status || "VERIFY")]}`}>
@@ -350,6 +438,81 @@ export default function DashboardPage() {
             </p>
           )}
           <p className="mt-1 text-gray-500 text-xs">Maintained by 3 consecutive approved claims this week.</p>
+        </motion.div>
+      </motion.section>
+
+      <motion.section variants={containerVariants} className="mt-8 grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+        <motion.div variants={itemVariants} className="rounded-4xl border border-white/10 bg-white/3 p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-xl">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-sky-300 light-mode:text-sky-700">Automation status</p>
+              <h3 className="mt-3 text-2xl font-black text-white light-mode:text-slate-900">Auto trigger monitoring</h3>
+              <p className="mt-2 text-sm text-white/60 light-mode:text-slate-600">Live status from the event scanner and backend automation engine.</p>
+            </div>
+            <span className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-bold ${monitoringStatus === "active" ? "bg-emerald-500/15 text-emerald-200" : "bg-rose-500/15 text-rose-200"}`}>
+              <span className={`h-2.5 w-2.5 rounded-full ${monitoringStatus === "active" ? "bg-emerald-400" : "bg-rose-400"}`} />
+              {monitoringStatus === "active" ? "Active monitoring" : "Monitor offline"}
+            </span>
+          </div>
+
+          <div className="mt-6 grid gap-4 sm:grid-cols-2">
+            <div className="rounded-3xl border border-white/10 bg-black/10 p-4 light-mode:border-black/10 light-mode:bg-slate-50">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/50 light-mode:text-slate-500">Last auto scan</p>
+              <p className="mt-3 text-base font-black text-white light-mode:text-slate-900">{formatTimestamp(systemStatus.lastScanAt)}</p>
+            </div>
+            <div className="rounded-3xl border border-white/10 bg-black/10 p-4 light-mode:border-black/10 light-mode:bg-slate-50">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/50 light-mode:text-slate-500">Next scan</p>
+              <p className="mt-3 text-base font-black text-white light-mode:text-slate-900">{formatTimestamp(systemStatus.nextScanAt)}</p>
+            </div>
+            <div className="rounded-3xl border border-white/10 bg-black/10 p-4 light-mode:border-black/10 light-mode:bg-slate-50 sm:col-span-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/50 light-mode:text-slate-500">Last detected trigger</p>
+              <p className="mt-3 text-base font-black text-white light-mode:text-slate-900">{systemStatus.lastTriggerDetected || "No trigger event detected yet."}</p>
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-3xl border border-white/10 bg-black/10 p-4 light-mode:border-black/10 light-mode:bg-slate-50">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/50 light-mode:text-slate-500">Weather API Status</p>
+            {weatherMetadata ? (
+              <div className="mt-3 space-y-2">
+                <p className="text-sm text-white/70 light-mode:text-slate-600">
+                  <span className="font-semibold">Source:</span> {weatherMetadata.source_name}
+                </p>
+                <p className="text-sm text-white/70 light-mode:text-slate-600">
+                  <span className="font-semibold">Updated at:</span> {formatTimestamp(weatherMetadata.last_updated_timestamp)}
+                </p>
+                <p className="text-sm text-white/70 light-mode:text-slate-600">
+                  <span className="font-semibold">Location:</span> {weatherMetadata.location}
+                </p>
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-white/60 light-mode:text-slate-600">Using fallback data</p>
+            )}
+          </div>
+        </motion.div>
+
+        <motion.div variants={itemVariants} className="rounded-4xl border border-white/10 bg-white/3 p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-xl">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-sky-300 light-mode:text-sky-700">Claim timeline</p>
+              <h3 className="mt-3 text-2xl font-black text-white light-mode:text-slate-900">Automation pipeline</h3>
+            </div>
+            <span className="text-xs text-white/50 light-mode:text-slate-500">Updated every 15s</span>
+          </div>
+
+          <div className="mt-6 space-y-4">
+            {automationTimeline.map((step) => (
+              <div key={step.title} className="rounded-3xl border border-white/10 bg-black/10 p-4 light-mode:border-black/10 light-mode:bg-slate-50">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-bold text-white light-mode:text-slate-900">{step.title}</p>
+                    <p className="mt-2 text-sm text-white/70 light-mode:text-slate-600">{step.description}</p>
+                  </div>
+                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${toneClass[step.tone]}`}>{step.tone.toUpperCase()}</span>
+                </div>
+                <div className="mt-3 text-xs text-white/40 light-mode:text-slate-500">{step.timestamp ? formatTimestamp(step.timestamp) : "No timestamp available"}</div>
+              </div>
+            ))}
+          </div>
         </motion.div>
       </motion.section>
 
@@ -449,11 +612,11 @@ export default function DashboardPage() {
           </motion.div>
 
           <motion.div variants={itemVariants} className="rounded-4xl border border-white/10 bg-white/3 p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-xl">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/50 light-mode:text-slate-500">Premium Snapshot</p>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/50 light-mode:text-slate-500">Policy Terms</p>
             <div className="mt-4 space-y-3 text-sm text-white/70 light-mode:text-slate-600">
-              <div className="flex items-center justify-between"><span>Expected loss</span><span className="font-bold">{formatCurrency(premium?.expected_loss_inr)}</span></div>
-              <div className="flex items-center justify-between"><span>Risk margin</span><span className="font-bold">{formatCurrency(premium?.risk_margin_inr)}</span></div>
-              <div className="flex items-center justify-between"><span>Platform fee</span><span className="font-bold">{formatCurrency(premium?.platform_fee_inr)}</span></div>
+              <div className="flex items-center justify-between"><span>Waiting period</span><span className="font-bold">24 hours after activation</span></div>
+              <div className="flex items-center justify-between"><span>Max claims per week</span><span className="font-bold">1 claim</span></div>
+              <div className="flex items-center justify-between"><span>Exclusions</span><span className="font-bold">Outside coverage hours, Inactive policy, Repeated claims</span></div>
             </div>
           </motion.div>
         </motion.div>
@@ -490,6 +653,9 @@ export default function DashboardPage() {
                 <div className="mt-4 flex flex-wrap gap-6 text-sm text-white/70 light-mode:text-slate-600">
                   <span>Payout: {formatCurrency(claim.payout)}</span>
                   <span>Trust score: {claim.trustScore}</span>
+                  {claim.status === 'REJECTED' && claim.reasons && claim.reasons.length > 0 && (
+                    <span className="text-red-400">Reason: {claim.reasons.join(', ')}</span>
+                  )}
                 </div>
               </motion.div>
             ))}

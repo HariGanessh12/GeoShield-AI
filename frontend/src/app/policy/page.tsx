@@ -237,25 +237,17 @@ export default function PolicyPage() {
                   <span className="font-bold">{formatCurrency(quote.breakdown.base)}</span>
                 </motion.div>
                 <motion.div variants={itemVariants} className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3 light-mode:border-black/10 transition-colors hover:bg-white/5 light-mode:hover:bg-black/5">
-                  <span>Zone surcharge</span>
-                  <span className="font-bold">+{formatCurrency(quote.breakdown.zoneSurcharge)}</span>
+                  <span>Risk adjustment</span>
+                  <span className="font-bold">+{formatCurrency(quote.breakdown.risk_adjustment)}</span>
                 </motion.div>
-                {quote.breakdown.personaAdjustment ? (
-                  <motion.div variants={itemVariants} className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3 light-mode:border-black/10 transition-colors hover:bg-white/5 light-mode:hover:bg-black/5">
-                    <span>Persona adjustment</span>
-                    <span className="font-bold">+{formatCurrency(quote.breakdown.personaAdjustment)}</span>
-                  </motion.div>
-                ) : null}
                 <motion.div variants={itemVariants} className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3 light-mode:border-black/10 transition-colors hover:bg-white/5 light-mode:hover:bg-black/5">
-                  <span>Reputation discount</span>
-                  <span className="font-bold">-{formatCurrency(quote.breakdown.reputationDiscount)}</span>
+                  <span>Platform fee</span>
+                  <span className="font-bold">+{formatCurrency(quote.breakdown.platform_fee)}</span>
                 </motion.div>
-                {quote.breakdown.weightedSeverity ? (
-                  <motion.div variants={itemVariants} className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3 light-mode:border-black/10 transition-colors hover:bg-white/5 light-mode:hover:bg-black/5">
-                    <span>Weighted trigger severity</span>
-                    <span className="font-bold">{Math.round(quote.breakdown.weightedSeverity * 100)}%</span>
-                  </motion.div>
-                ) : null}
+                <motion.div variants={itemVariants} className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3 bg-emerald-500/10 light-mode:border-emerald-200 light-mode:bg-emerald-50">
+                  <span className="font-semibold">Final premium</span>
+                  <span className="font-bold text-emerald-300 light-mode:text-emerald-700">{formatCurrency(quote.breakdown.final_premium)}</span>
+                </motion.div>
               </div>
               <motion.button
                 variants={itemVariants}

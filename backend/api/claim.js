@@ -10,6 +10,12 @@ const { sendSuccess, sendError } = require('../utils/http');
 const { buildTriggerFeed, evaluateTriggerEligibility, selectRecommendedTrigger } = require('../services/triggerEngine');
 const payoutService = require('../services/payoutService');
 
+const INSURANCE_RULES = {
+    waitingPeriodHours: 24,
+    maxClaimsPerWeek: 1,
+    excludedConditions: ['OUTSIDE_COVERAGE_HOURS', 'INACTIVE_POLICY', 'REPEATED_CLAIMS']
+};
+
 function getWorkerId(req) {
     const candidate = req.user && (req.user.id || req.user._id || req.user.userId);
     if (!candidate) return null;
@@ -44,7 +50,7 @@ async function processClaimForWorker({
     const recentClaims = await Claim.find({ workerId })
         .sort({ createdAt: -1 })
         .limit(10)
-        .select('claimAmount payout')
+        .select('amount payout')
         .lean()
         .catch((err) => {
             console.warn("Claim history lookup failed, continuing without history:", err.message);
@@ -52,87 +58,234 @@ async function processClaimForWorker({
         });
 
     const claimsHistory = recentClaims
-        .map((claim) => Number.isFinite(Number(claim.claimAmount)) ? Number(claim.claimAmount) : Number(claim.payout))
+        .map((claim) => Number.isFinite(Number(claim.amount)) ? Number(claim.amount) : Number(claim.payout))
         .filter((amount) => Number.isFinite(amount) && amount > 0);
+
+    const policyId = activePolicy && activePolicy._id ? activePolicy._id : null;
+    if (!policyId) {
+        return {
+            message: "No active policy found for worker.",
+            decision: { status: 'REJECTED', payout: 0, reasons: ['No active policy found for worker'] }
+        };
+    }
+
+    // Check waiting period
+    const policyActivationTime = new Date(activePolicy.createdAt || activePolicy.startDate);
+    const hoursSinceActivation = (Date.now() - policyActivationTime.getTime()) / (1000 * 60 * 60);
+    if (hoursSinceActivation < INSURANCE_RULES.waitingPeriodHours) {
+        return {
+            message: "Claim rejected: Policy waiting period not met.",
+            decision: { status: 'REJECTED', payout: 0, reasons: [`Policy waiting period of ${INSURANCE_RULES.waitingPeriodHours} hours not met`] }
+        };
+    }
+
+    // Check if outside coverage hours (assuming worker must be on shift)
+    const currentPolicy = await Policy.findOne({ workerId, status: 'ACTIVE' }).lean().catch(() => null);
+    if (!currentPolicy || currentPolicy.shiftState !== 'ON') {
+        return {
+            message: "Claim rejected: Outside coverage hours.",
+            decision: { status: 'REJECTED', payout: 0, reasons: ['Claim submitted outside active coverage hours'] }
+        };
+    }
+
+    // Check inactive policy
+    if (activePolicy.status !== 'ACTIVE') {
+        return {
+            message: "Claim rejected: Policy is inactive.",
+            decision: { status: 'REJECTED', payout: 0, reasons: ['Policy is not active'] }
+        };
+    }
+
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const weeklyClaimCount = await Claim.countDocuments({
+        workerId,
+        createdAt: { $gte: oneWeekAgo }
+    }).catch((err) => {
+        console.warn("Weekly claim count lookup failed:", err.message);
+        return 0;
+    });
+
+    if (weeklyClaimCount >= INSURANCE_RULES.maxClaimsPerWeek) {
+        const decision = {
+            status: 'REJECTED',
+            payout: 0,
+            reasons: [`Weekly claim limit exceeded (max ${INSURANCE_RULES.maxClaimsPerWeek} claim per 7 days)`]
+        };
+
+        await Claim.create({
+            workerId,
+            policyId,
+            trigger: disruptionFactor.type,
+            amount: disruptionFactor.lossAmount || 0,
+            trustScore: 0,
+            status: decision.status,
+            payout: decision.payout,
+            reputationScore: userRecord.reputationScore || 85,
+            reasons: decision.reasons,
+            source,
+            triggerSnapshot,
+            externalData: { severityScore: disruptionFactor.severity }
+        });
+
+        return { message: "Claim rejected due to weekly limit.", decision };
+    }
 
     if (!activePolicy.coveredEvents.includes(disruptionFactor.type)) {
         return {
             message: "Event not covered by active policy.",
-            decision: { status: 'REJECTED', reasons: ["Event not covered"] }
+            decision: { status: 'REJECTED', payout: 0, reasons: ["Event not covered"] }
         };
     }
 
     if (disruptionFactor.isInactiveWorker && activePolicy.exclusions.includes('INACTIVE_WORKER')) {
         return {
             message: "Claim rejected: Exclusion INACTIVE_WORKER matched.",
-            decision: { status: 'REJECTED', reasons: ["Worker was inactive"] }
+            decision: { status: 'REJECTED', payout: 0, reasons: ["Worker was inactive"] }
         };
     }
 
     const externalData = await externalDataService.getExternalData(disruptionFactor.type, userRecord.zone);
     disruptionFactor.severity = externalData.severityScore;
 
-    const profile = { reputation: userRecord.reputationScore || 85, claims_history: claimsHistory };
-
-    if (disruptionFactor.severity < 0.5 && disruptionFactor.type !== 'PLATFORM_OUTAGE') {
+    const severityThreshold = 0.7;
+    if (disruptionFactor.severity < severityThreshold) {
         const decision = {
             status: "REJECTED",
             trust_score: 100,
             payout: 0,
-            reasons: ["Disruption API severity below payout threshold"]
+            reasons: ["Disruption severity below threshold (70%)"]
         };
 
         await Claim.create({
             workerId,
+            policyId,
             trigger: disruptionFactor.type,
-            claimAmount: disruptionFactor.lossAmount || 0,
+            amount: disruptionFactor.lossAmount || 0,
             trustScore: decision.trust_score,
             status: decision.status,
             payout: decision.payout,
-            reputationScore: profile.reputation,
+            reputationScore: userRecord.reputationScore || 85,
             reasons: decision.reasons,
             source,
-            triggerSnapshot
+            triggerSnapshot,
+            externalData
         });
 
         return { message: "Disruption severity too low.", decision };
     }
 
-    let claimDecision = await trustScoreService.evaluateClaim(workerId, disruptionFactor, profile);
+    const weeklyPremium = Number(activePolicy.premiumPaid) || 0;
+    const payoutMultiplier = Number(activePolicy.payoutMultiplier) || 3;
+    const limitByPremium = weeklyPremium > 0 ? weeklyPremium * payoutMultiplier : Infinity;
+    const maxAllowedPayout = Math.min(
+        Number.isFinite(Number(activePolicy.maxPayoutPerEvent)) ? activePolicy.maxPayoutPerEvent : Infinity,
+        limitByPremium
+    );
 
-    if (!claimDecision || claimDecision.status === 'ERROR') {
-        claimDecision = typeof trustScoreService.buildLocalFallbackDecision === 'function'
-            ? trustScoreService.buildLocalFallbackDecision(workerId, disruptionFactor, profile)
-            : {
-                status: 'REJECTED',
-                trust_score: 50,
-                reasons: ['Local fallback used because AI evaluation was unavailable'],
-                adjustments: [],
-                aiConfidence: 0.5
-            };
-        claimDecision.source = claimDecision.source || 'route_fallback';
+    const requestedAmount = Number(disruptionFactor.lossAmount) || 0;
+    if (requestedAmount <= 0) {
+        const decision = {
+            status: 'REJECTED',
+            payout: 0,
+            reasons: ['Invalid requested payout amount']
+        };
+
+        await Claim.create({
+            workerId,
+            policyId,
+            trigger: disruptionFactor.type,
+            amount: requestedAmount,
+            trustScore: 0,
+            status: decision.status,
+            payout: decision.payout,
+            reputationScore: userRecord.reputationScore || 85,
+            reasons: decision.reasons,
+            source,
+            triggerSnapshot,
+            externalData
+        });
+
+        return { message: 'Invalid claim amount.', decision };
     }
 
-    const payoutAmount = claimDecision.status === 'APPROVED' ? (disruptionFactor.lossAmount || 400) : 0;
+    if (requestedAmount > maxAllowedPayout) {
+        const decision = {
+            status: 'REJECTED',
+            payout: 0,
+            reasons: [`Requested payout exceeds policy event cap of ₹${maxAllowedPayout.toFixed(2)}`]
+        };
 
-    const savedClaim = await Claim.create({
+        await Claim.create({
+            workerId,
+            policyId,
+            trigger: disruptionFactor.type,
+            amount: requestedAmount,
+            trustScore: 0,
+            status: decision.status,
+            payout: decision.payout,
+            reputationScore: userRecord.reputationScore || 85,
+            reasons: decision.reasons,
+            source,
+            triggerSnapshot,
+            externalData
+        });
+
+        return { message: 'Claim rejected because payout exceeds allowed limit.', decision };
+    }
+
+    const profile = { reputation: userRecord.reputationScore || 85, claims_history: claimsHistory };
+    const claimRecord = new Claim({
         workerId,
+        policyId,
         trigger: disruptionFactor.type,
-        claimAmount: disruptionFactor.lossAmount || 0,
-        trustScore: claimDecision.trust_score,
-        status: claimDecision.status,
-        payout: payoutAmount,
-        reputationScore: profile.reputation,
-        reasons: claimDecision.reasons,
+        amount: requestedAmount,
+        location: userRecord.location || { zone: userRecord.zone },
+        deviceInfo: {},
+        externalData,
         source,
         triggerSnapshot
     });
 
-    if (savedClaim.status === 'APPROVED') {
+    const scoringResult = await trustScoreService.scoreClaim(claimRecord, profile);
+
+    const claimDecision = {
+        ...scoringResult,
+        payout: scoringResult.status === 'APPROVED' ? requestedAmount : 0
+    };
+
+    claimRecord.trustScore = scoringResult.trustScore;
+    claimRecord.adjustments = scoringResult.adjustments;
+    claimRecord.reasons = scoringResult.reasons || [];
+    claimRecord.status = scoringResult.status;
+    claimRecord.payout = claimDecision.payout;
+    claimRecord.reputationScore = profile.reputation;
+
+    if (scoringResult.status === 'APPROVED') {
         try {
-            await payoutService.processPayout(savedClaim);
+            await payoutService.processPayout(claimRecord);
         } catch (err) {
             console.error("Payout processing error:", err);
+            claimRecord.status = 'VERIFY';
+            claimRecord.resolutionNote = `Auto-approved but payout failed: ${err.message}`;
+            claimDecision.status = 'VERIFY';
+        }
+    }
+
+    await claimRecord.save();
+
+    if (claimRecord.status === 'APPROVED') {
+        try {
+            const policyDoc = await Policy.findById(policyId);
+            if (policyDoc) {
+                policyDoc.totalClaimsPaid = (policyDoc.totalClaimsPaid || 0) + claimRecord.payout;
+                policyDoc.totalPremiumCollected = Number(policyDoc.totalPremiumCollected || policyDoc.premiumPaid || 0);
+                policyDoc.lossRatio = policyDoc.totalPremiumCollected > 0
+                    ? policyDoc.totalClaimsPaid / policyDoc.totalPremiumCollected
+                    : 0;
+                await policyDoc.save();
+            }
+        } catch (err) {
+            console.warn("Policy loss ratio update failed:", err.message);
         }
     }
 
@@ -184,7 +337,7 @@ router.post('/auto-trigger', async (req, res) => {
         const recentClaims = await Claim.find({ workerId })
             .sort({ createdAt: -1 })
             .limit(10)
-            .select('claimAmount payout')
+            .select('amount payout')
             .lean()
             .catch((err) => {
                 console.warn("Claim history lookup failed, continuing without history:", err.message);
@@ -192,7 +345,7 @@ router.post('/auto-trigger', async (req, res) => {
             });
 
         const claimsHistory = recentClaims
-            .map((claim) => Number.isFinite(Number(claim.claimAmount)) ? Number(claim.claimAmount) : Number(claim.payout))
+            .map((claim) => Number.isFinite(Number(claim.amount)) ? Number(claim.amount) : Number(claim.payout))
             .filter((amount) => Number.isFinite(amount) && amount > 0);
 
         // 🛡️ INSURANCE ELIGIBILITY CHECK
@@ -200,6 +353,13 @@ router.post('/auto-trigger', async (req, res) => {
             console.warn("Policy lookup failed, using fallback policy:", err.message);
             return null;
         }));
+
+        if (!activePolicy || !activePolicy._id) {
+            return sendSuccess(res, {
+                message: "No active policy found for worker.",
+                decision: { status: 'REJECTED', reasons: ['No active policy found'] }
+            });
+        }
 
         if (!activePolicy.coveredEvents.includes(disruptionFactor.type)) {
             return sendSuccess(res, {
@@ -497,7 +657,7 @@ router.patch('/admin/:id/review', async (req, res) => {
         claim.reviewedBy = String(req.user.id);
         claim.reviewedAt = new Date();
         claim.resolutionNote = String(note || '').trim();
-        claim.payout = claim.status === 'APPROVED' ? (claim.claimAmount || claim.payout || 0) : 0;
+        claim.payout = claim.status === 'APPROVED' ? (claim.amount || claim.payout || 0) : 0;
         await claim.save();
 
         if (claim.status === 'APPROVED') {

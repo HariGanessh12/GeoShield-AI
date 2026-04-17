@@ -167,20 +167,25 @@ export default function RiskPage() {
             <motion.div variants={containerVariants} className="mt-6 space-y-4">
               <motion.div variants={itemVariants} className="rounded-3xl border border-indigo-500/20 bg-indigo-500/10 p-6 text-center shadow-lg">
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-indigo-300 light-mode:text-indigo-700">Weekly premium</p>
-                <p className="mt-3 text-5xl font-black text-white light-mode:text-slate-900">{formatCurrency(premium.weekly_premium_inr)}</p>
+                <p className="mt-3 text-5xl font-black text-white light-mode:text-slate-900">{formatCurrency(premium.final_premium)}</p>
+                <p className="mt-2 text-xs text-white/60 light-mode:text-slate-500">Base + Risk + Fee = Final</p>
               </motion.div>
               <div className="space-y-3 text-sm text-white/70 light-mode:text-slate-600">
                 <motion.div variants={itemVariants} className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3 light-mode:border-black/10 transition-colors hover:bg-white/5 light-mode:hover:bg-black/5">
-                  <span>Expected loss</span>
-                  <span className="font-bold">{formatCurrency(premium.expected_loss_inr)}</span>
+                  <span>Base premium</span>
+                  <span className="font-bold">{formatCurrency(premium.base_premium)}</span>
                 </motion.div>
                 <motion.div variants={itemVariants} className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3 light-mode:border-black/10 transition-colors hover:bg-white/5 light-mode:hover:bg-black/5">
-                  <span>Risk margin</span>
-                  <span className="font-bold">{formatCurrency(premium.risk_margin_inr)}</span>
+                  <span>Risk adjustment</span>
+                  <span className="font-bold">+{formatCurrency(premium.risk_adjustment)}</span>
                 </motion.div>
                 <motion.div variants={itemVariants} className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3 light-mode:border-black/10 transition-colors hover:bg-white/5 light-mode:hover:bg-black/5">
                   <span>Platform fee</span>
-                  <span className="font-bold">{formatCurrency(premium.platform_fee_inr)}</span>
+                  <span className="font-bold">+{formatCurrency(premium.platform_fee)}</span>
+                </motion.div>
+                <motion.div variants={itemVariants} className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3 bg-indigo-500/10 light-mode:border-indigo-200 light-mode:bg-indigo-50">
+                  <span className="font-semibold">Final premium</span>
+                  <span className="font-bold text-indigo-300 light-mode:text-indigo-700">{formatCurrency(premium.final_premium)}</span>
                 </motion.div>
               </div>
             </motion.div>

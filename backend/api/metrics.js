@@ -3,6 +3,7 @@ const router = express.Router();
 const financialService = require('../services/financialService');
 const Claim = require('../models/claim');
 const User = require('../models/user');
+const { verifyAdmin } = require('../middleware/authMiddleware');
 const { sendSuccess, sendError } = require('../utils/http');
 
 // Simple In-Memory Cache
@@ -12,7 +13,7 @@ const cache = {
     TTL: 5 * 60 * 1000 // 5 minutes
 };
 
-router.get('/business', async (req, res) => {
+router.get('/business', verifyAdmin, async (req, res) => {
     try {
         const metrics = await financialService.getBusinessMetrics();
         return sendSuccess(res, metrics);
@@ -21,7 +22,16 @@ router.get('/business', async (req, res) => {
     }
 });
 
-router.get('/admin-dashboard', async (req, res) => {
+router.get('/admin/financials', verifyAdmin, async (req, res) => {
+    try {
+        const metrics = await financialService.getBusinessMetrics();
+        return sendSuccess(res, metrics);
+    } catch (e) {
+        return sendError(res, 500, "Could not fetch financial metrics");
+    }
+});
+
+router.get('/admin-dashboard', verifyAdmin, async (req, res) => {
     // Return cached data if valid
     if (cache.dashboard && cache.lastUpdated && (Date.now() - cache.lastUpdated < cache.TTL)) {
         return sendSuccess(res, { ...cache.dashboard, cached: true });

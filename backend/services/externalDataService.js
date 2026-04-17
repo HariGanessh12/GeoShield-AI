@@ -91,7 +91,12 @@ async function getWeatherData(lat, lon, zone, eventType) {
                 zone,
                 timestamp: new Date().toISOString()
             },
-            apiUsed: true
+            apiUsed: true,
+            metadata: {
+                source_name: 'OpenWeatherMap API',
+                last_updated_timestamp: new Date().toISOString(),
+                location: zone
+            }
         };
     } catch (error) {
         const errorCode = error.response?.status || error.code || 'UNKNOWN';
@@ -147,7 +152,12 @@ function getMockData(eventType = 'NORMAL', geoZone = 'Delhi NCR') {
         realData: null,
         apiUsed: false,
         source: mockData.source,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        metadata: {
+            source_name: 'Fallback Mock Data',
+            last_updated_timestamp: new Date().toISOString(),
+            location: geoZone || 'N/A'
+        }
     };
 
     console.info(`[ExternalData] Using mock data (${eventType}/${geoZone}):`, {

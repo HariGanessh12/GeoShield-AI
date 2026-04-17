@@ -5,7 +5,8 @@ const helmet = require('helmet');
 const mongoose = require('mongoose');
 const rateLimit = require('express-rate-limit');
 const { randomUUID } = require('crypto');
-const { verifyToken } = require('./middleware/authMiddleware');
+const { verifyToken, verifyAdmin } = require('./middleware/authMiddleware');
+const financialService = require('./services/financialService');
 const { sendSuccess, sendError } = require('./utils/http');
 const pkg = require('./package.json');
 
@@ -62,6 +63,14 @@ app.get('/version', (req, res) => sendSuccess(res, {
     version: pkg.version,
     environment: process.env.NODE_ENV || 'development'
 }));
+app.get('/admin/financials', verifyToken, verifyAdmin, async (req, res) => {
+    try {
+        const metrics = await financialService.getBusinessMetrics();
+        return sendSuccess(res, metrics);
+    } catch (e) {
+        return sendError(res, 500, "Could not fetch financial metrics");
+    }
+});
 
 // Feature Routers (Public)
 app.use('/api/auth', require('./api/auth'));
@@ -72,6 +81,7 @@ app.use('/api/worker', verifyToken, require('./api/worker'));
 app.use('/api/risk', verifyToken, require('./api/risk'));
 app.use('/api/policy', verifyToken, require('./api/policy'));
 app.use('/api/metrics', verifyToken, require('./api/metrics'));
+app.use('/system', require('./api/system'));
 
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {

@@ -9,8 +9,11 @@ import { formatCurrency } from "@/utils/format";
 
 type AdminDashboardResponse = {
   financials: {
+    totalUsers: number;
+    avgPremium: number;
     totalPremium: number;
     totalClaims: number;
+    profit: number;
     lossRatio: number;
     status: string;
   };
@@ -150,7 +153,13 @@ export default function AdminDashboard() {
             >
                 <span className="text-gray-400 text-xs font-bold uppercase tracking-wider light-mode:text-slate-500">Portfolio Status</span>
                 <span className="block text-xl font-bold mt-2 text-amber-400 light-mode:text-amber-600">{loading ? "Loading..." : dashboard?.financials.status ?? "N/A"}</span>
-                <span className="block text-sm font-semibold mt-1 text-white/50 light-mode:text-slate-400">Loss ratio {(dashboard?.financials.lossRatio ?? 0) * 100}%</span>
+                <span className="block text-sm font-semibold mt-1 text-white/50 light-mode:text-slate-400">Loss ratio {((dashboard?.financials.lossRatio ?? 0) * 100).toFixed(1)}%</span>
+                <div className="mt-4 p-4 bg-black/20 rounded-2xl border border-white/10 light-mode:bg-white/50 light-mode:border-black/10">
+                  <p className="text-sm font-semibold text-white/70 light-mode:text-slate-600 mb-2">Financial Summary</p>
+                  <p className="text-sm text-white light-mode:text-slate-900">
+                    {dashboard?.financials.totalUsers ?? 0} users | {formatCurrency(dashboard?.financials.totalPremium ?? 0)} premium | {formatCurrency(dashboard?.financials.totalClaims ?? 0)} claims | {((dashboard?.financials.lossRatio ?? 0) * 100).toFixed(1)}% loss ratio
+                  </p>
+                </div>
             </motion.div>
         </div>
 
@@ -175,9 +184,14 @@ export default function AdminDashboard() {
                     <p className="mt-2 text-2xl font-black text-white light-mode:text-slate-900">{formatCurrency(dashboard?.financials.totalClaims)}</p>
                   </div>
                   <div className="rounded-2xl border border-white/10 bg-black/20 p-4 light-mode:border-black/10 light-mode:bg-white">
-                    <p className="text-xs uppercase tracking-[0.18em] text-white/45 light-mode:text-slate-500">Approval Rate</p>
-                    <p className="mt-2 text-2xl font-black text-white light-mode:text-slate-900">{dashboard?.claims.approvalRate?.toFixed(1) ?? "0.0"}%</p>
+                    <p className="text-xs uppercase tracking-[0.18em] text-white/45 light-mode:text-slate-500">Average Premium</p>
+                    <p className="mt-2 text-2xl font-black text-white light-mode:text-slate-900">{formatCurrency(dashboard?.financials.avgPremium ?? 0)}</p>
                   </div>
+                </div>
+
+                <div className="mb-6 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 light-mode:border-emerald-200 light-mode:bg-emerald-50">
+                  <p className="text-xs uppercase tracking-[0.18em] text-emerald-200 light-mode:text-emerald-700">Profit</p>
+                  <p className="mt-2 text-2xl font-black text-white light-mode:text-slate-900">{formatCurrency(dashboard?.financials.profit ?? 0)}</p>
                 </div>
 
                 <div className="space-y-4">

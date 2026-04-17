@@ -142,6 +142,7 @@ router.post('/quote', createValidator([
         }, 0) / LOCATION_RISK_EVENTS.length;
 
         // Build risk model input
+        const avgPayoutPerEvent = Math.max(400, Number(user.coverageAmount || 3500) * 0.2);
         const riskInput = {
             weather: weightedSeverity * 100,
             traffic: (eventData[EVENTS.TRAFFIC_SURGE]?.severityScore || 0.4) * 100,
@@ -149,7 +150,8 @@ router.post('/quote', createValidator([
             persona_type: user.personaType || 'FOOD_DELIVERY',
             reputation_score: user.reputationScore || 85,
             claim_history: (claimHistory || []).map(c => ({ status: c.status, approved: c.status === 'APPROVED' })),
-            zone: user.zone
+            zone: user.zone,
+            avg_payout_per_event: avgPayoutPerEvent
         };
 
         let riskResult;
@@ -168,14 +170,16 @@ router.post('/quote', createValidator([
         signals.weightedSeverity = Number(weightedSeverity.toFixed(2));
 
         return sendSuccess(res, {
-            quote: riskResult.weekly_premium_inr,
-            breakdown: riskResult.breakdown,
+            quote: riskResult.final_premium,
+            coverageAmount: 3500,
+            breakdown: {
+                base: riskResult.base_premium,
+                risk_adjustment: riskResult.risk_margin,
+                platform_fee: riskResult.platform_fee,
+                final_premium: riskResult.final_premium
+            },
             risk_level: riskResult.risk_level,
             risk_score: riskResult.risk_score,
-            expected_loss: riskResult.expected_loss,
-            loss_ratio_projection: riskResult.loss_ratio_projection,
-            credibility: riskResult.credibility,
-            coverageAmount: 3500,
             signals,
             _meta: {
                 zone: user.zone,
@@ -193,7 +197,8 @@ router.post('/quote', createValidator([
 router.post('/activate', createValidator([
     { source: 'body', field: 'userId', check: validators.objectId('userId') },
     { source: 'body', field: 'premiumPaid', check: validators.optionalNumber('premiumPaid', 0) },
-    { source: 'body', field: 'coverageAmount', check: validators.optionalNumber('coverageAmount', 0) }
+    { source: 'body', field: 'coverageAmount', check: validators.optionalNumber('coverageAmount', 0) },
+    { source: 'body', field: 'payoutMultiplier', check: validators.optionalNumber('payoutMultiplier', 2, 3) }
 ]), async (req, res) => {
     try {
         const { userId, premiumPaid, coverageAmount } = req.body;
@@ -203,11 +208,18 @@ router.post('/activate', createValidator([
         endDate.setDate(startDate.getDate() + 7);
 
         let policy = await Policy.findOne({ workerId: userId, status: 'active' }).sort({ createdAt: -1 });
+        const weeklyPremium = Number(premiumPaid || 0);
         if (policy) {
             policy.startDate = startDate;
             policy.endDate = endDate;
-            policy.premiumPaid = premiumPaid;
+            policy.premiumPaid = weeklyPremium;
             policy.coverageAmount = coverageAmount || policy.coverageAmount;
+            policy.totalPremiumCollected = weeklyPremium;
+            policy.totalClaimsPaid = policy.totalClaimsPaid || 0;
+            policy.lossRatio = policy.totalPremiumCollected > 0
+                ? policy.totalClaimsPaid / policy.totalPremiumCollected
+                : 0;
+            policy.payoutMultiplier = req.body.payoutMultiplier || policy.payoutMultiplier || 3;
             policy.status = 'active';
             await policy.save();
         } else {
@@ -215,8 +227,12 @@ router.post('/activate', createValidator([
                 workerId: userId,
                 startDate,
                 endDate,
-                premiumPaid,
+                premiumPaid: weeklyPremium,
                 coverageAmount,
+                totalPremiumCollected: weeklyPremium,
+                totalClaimsPaid: 0,
+                lossRatio: 0,
+                payoutMultiplier: req.body.payoutMultiplier || 3,
                 status: 'active'
             });
         }
@@ -231,6 +247,7 @@ router.post('/activate', createValidator([
 router.put('/current', createValidator([
     { source: 'body', field: 'coverageAmount', check: validators.optionalNumber('coverageAmount', 500, 10000) },
     { source: 'body', field: 'maxPayoutPerEvent', check: validators.optionalNumber('maxPayoutPerEvent', 250, 5000) },
+    { source: 'body', field: 'payoutMultiplier', check: validators.optionalNumber('payoutMultiplier', 2, 3) },
     { source: 'body', field: 'coveredEvents', check: validators.stringArrayEnum('coveredEvents', COVERED_EVENTS, { min: 1, optional: true }) }
 ]), async (req, res) => {
     try {
@@ -243,7 +260,7 @@ router.put('/current', createValidator([
             return sendError(res, 404, "No policy found");
         }
 
-        const allowedUpdates = ['coverageAmount', 'maxPayoutPerEvent', 'coveredEvents'];
+        const allowedUpdates = ['coverageAmount', 'maxPayoutPerEvent', 'payoutMultiplier', 'coveredEvents'];
         for (const field of allowedUpdates) {
             if (req.body[field] !== undefined) {
                 policy[field] = req.body[field];

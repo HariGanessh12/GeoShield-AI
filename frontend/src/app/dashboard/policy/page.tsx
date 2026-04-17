@@ -10,8 +10,9 @@ type PolicyQuote = {
   coverageAmount: number;
   breakdown: {
     base: number;
-    zoneSurcharge: number;
-    reputationDiscount: number;
+    risk_adjustment: number;
+    platform_fee: number;
+    final_premium: number;
   };
 };
 
@@ -118,22 +119,22 @@ export default function PolicyDashboard() {
                     <div className="flex justify-between items-center p-4 bg-rose-500/10 rounded-xl border border-rose-500/20">
                         <span className="text-rose-400 text-sm font-semibold flex items-center leading-tight">
                         <span className="w-1.5 h-1.5 rounded-full bg-rose-400 mr-2 self-center animate-pulse"></span>
-                        Zone Risk Surcharge
+                        Risk Adjustment
                         </span>
-                        <span className="font-bold text-rose-300 drop-shadow">+₹{quote.breakdown.zoneSurcharge}</span>
+                        <span className="font-bold text-rose-300 drop-shadow">+₹{quote.breakdown.risk_adjustment}</span>
                     </div>
-                    <div className="flex justify-between items-center p-4 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
-                        <span className="text-emerald-400 text-sm font-semibold flex items-center leading-tight">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-2 self-center"></span>
-                        Trust Reputation
+                    <div className="flex justify-between items-center p-4 bg-blue-500/10 rounded-xl border border-blue-500/20">
+                        <span className="text-blue-400 text-sm font-semibold flex items-center leading-tight">
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mr-2 self-center"></span>
+                        Platform Fee
                         </span>
-                        <span className="font-bold text-emerald-300 drop-shadow">-₹{quote.breakdown.reputationDiscount}</span>
+                        <span className="font-bold text-blue-300 drop-shadow">+₹{quote.breakdown.platform_fee}</span>
                     </div>
                   </div>
                   
                   <div className="flex flex-col items-center justify-center p-6 bg-gradient-to-br from-[#0d0f17] to-black/60 rounded-3xl border border-emerald-500/20 shadow-inner text-center">
                       <span className="text-xs text-gray-500 font-bold tracking-widest uppercase mb-2">Your Weekly Premium</span>
-                      <span className="text-6xl font-black text-white mb-4 drop-shadow-xl">₹{quote.quote}</span>
+                      <span className="text-6xl font-black text-white mb-4 drop-shadow-xl">₹{quote.breakdown.final_premium}</span>
                       <span className="text-[10px] uppercase tracking-wider text-emerald-400 font-bold px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full">Protects up to ₹{quote.coverageAmount}</span>
                   </div>
               </div>
