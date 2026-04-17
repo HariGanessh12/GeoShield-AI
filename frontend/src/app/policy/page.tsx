@@ -22,10 +22,9 @@ type QuoteResponse = {
   quote: number;
   breakdown: {
     base: number;
-    zoneSurcharge: number;
-    personaAdjustment?: number;
-    reputationDiscount: number;
-    weightedSeverity?: number;
+    risk_adjustment: number;
+    platform_fee: number;
+    final_premium: number;
   };
   coverageAmount: number;
 };
