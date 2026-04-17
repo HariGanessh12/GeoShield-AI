@@ -5,8 +5,7 @@ const Policy = require('../models/policy');
 const { sendSuccess, sendError } = require('../utils/http');
 const { createValidator, validators } = require('../utils/validation');
 const { getExternalData } = require('../services/externalDataService');
-const { spawn } = require('child_process');
-const path = require('path');
+const { calculatePremium } = require('../services/riskCalculator');
 
 const COVERED_EVENTS = ['HEAVY_RAIN', 'HEATWAVE', 'PLATFORM_OUTAGE', 'AQI_SEVERE', 'TRAFFIC_SURGE'];
 
@@ -14,46 +13,6 @@ function personaMultiplier(personaType) {
     if (personaType === 'GROCERY_DELIVERY') return 1.15;
     if (personaType === 'BIKE_TAXI') return 1.3;
     return 1.0;
-}
-
-async function callRiskModel(inputData) {
-    return new Promise((resolve, reject) => {
-        const pythonProcess = spawn('python', [
-            path.join(__dirname, '../../ai-engine/risk_model_v2.py'),
-            JSON.stringify(inputData)
-        ]);
-
-        let stdout = '';
-        let stderr = '';
-
-        pythonProcess.stdout.on('data', (data) => {
-            stdout += data.toString();
-        });
-
-        pythonProcess.stderr.on('data', (data) => {
-            stderr += data.toString();
-        });
-
-        pythonProcess.on('close', (code) => {
-            if (code !== 0) {
-                console.error('Risk model error:', stderr);
-                reject(new Error(`Risk model failed: ${stderr}`));
-                return;
-            }
-
-            try {
-                const result = JSON.parse(stdout.trim());
-                resolve(result);
-            } catch (e) {
-                reject(new Error(`Failed to parse risk model output: ${e.message}`));
-            }
-        });
-
-        pythonProcess.on('error', (error) => {
-            console.error('Failed to start risk model:', error);
-            reject(error);
-        });
-    });
 }
 
 router.get('/current', async (req, res) => {
@@ -116,7 +75,7 @@ router.post('/quote', createValidator([
             traffic.severityScore * 0.2
         );
 
-        // Call advanced risk model
+        // Call advanced risk model (JavaScript implementation)
         const riskInput = {
             weather: weightedSeverity * 100,  // Convert to 0-100 scale
             traffic: traffic.severityScore * 100,
@@ -127,7 +86,7 @@ router.post('/quote', createValidator([
             zone: user.zone
         };
 
-        const riskResult = await callRiskModel(riskInput);
+        const riskResult = calculatePremium(riskInput);
 
         return sendSuccess(res, {
             quote: riskResult.weekly_premium_inr,

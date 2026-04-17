@@ -10,7 +10,7 @@ const zoneCoordinates = {
     'Bangalore Central': { lat: 12.9716, lon: 77.5946 }
 };
 
-async function getWeatherData(lat, lon) {
+async function getWeatherData(lat, lon, zone) {
     try {
         const response = await axios.get(OPENWEATHER_BASE_URL, {
             params: {
@@ -63,7 +63,7 @@ async function getWeatherData(lat, lon) {
     } catch (error) {
         console.error('Weather API error:', error.message);
         // Fallback to enhanced mock
-        return getMockData(eventType, geoZone);
+        return getMockData('NORMAL', zone);
     }
 }
 
@@ -99,7 +99,7 @@ async function getExternalData(eventType, geoZone) {
     // For weather-related events, try real API
     if (['HEAVY_RAIN', 'HEATWAVE', 'TRAFFIC_SURGE'].includes(eventType)) {
         const coords = zoneCoordinates[geoZone] || zoneCoordinates['Delhi NCR'];
-        const weatherData = await getWeatherData(coords.lat, coords.lon);
+        const weatherData = await getWeatherData(coords.lat, coords.lon, geoZone);
 
         // Override eventType if weather indicates different condition
         if (weatherData.eventType !== 'NORMAL') {
