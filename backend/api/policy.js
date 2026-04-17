@@ -6,6 +6,7 @@ const { sendSuccess, sendError } = require('../utils/http');
 const { createValidator, validators } = require('../utils/validation');
 const { getExternalData } = require('../services/externalDataService');
 const { calculatePremium } = require('../services/riskCalculator');
+const POLICY_RULES = require('../config/policyRules');
 
 // Event type constants - eliminates hardcoded strings
 const EVENTS = {
@@ -61,6 +62,14 @@ router.get('/history', async (req, res) => {
     } catch (e) {
         console.error("Policy history error:", e);
         return sendError(res, 500, "Could not fetch policy history");
+    }
+});
+
+router.get('/terms', async (req, res) => {
+    try {
+        return sendSuccess(res, POLICY_RULES);
+    } catch (error) {
+        return sendError(res, 500, 'Could not load policy terms');
     }
 });
 
@@ -173,8 +182,8 @@ router.post('/quote', createValidator([
             quote: riskResult.final_premium,
             coverageAmount: 3500,
             breakdown: {
-                base: riskResult.base_premium,
-                risk_adjustment: riskResult.risk_margin,
+                base_premium: riskResult.base_premium,
+                risk_adjustment: riskResult.risk_adjustment ?? riskResult.risk_margin,
                 platform_fee: riskResult.platform_fee,
                 final_premium: riskResult.final_premium
             },
@@ -185,7 +194,8 @@ router.post('/quote', createValidator([
                 zone: user.zone,
                 personaType: user.personaType,
                 reputationScore: user.reputationScore,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                data_label: Object.values(eventData).some((entry) => entry.apiUsed) ? 'Live data' : 'Simulated data (fallback)'
             }
         });
     } catch (e) {

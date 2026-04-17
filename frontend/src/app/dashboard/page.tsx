@@ -8,9 +8,15 @@ import { getSessionUser } from "@/utils/auth";
 import { formatCurrency, statusTone } from "@/utils/format";
 import { normalizePremiumResponse, type PremiumResponse } from "@/utils/risk";
 
-type Claim = { _id?: string; trigger: string; trustScore: number; status: string; payout: number; reasons?: string[]; createdAt: string };
+type Claim = { _id?: string; trigger: string; trustScore: number; status: string; payout: number; reasons?: string[]; createdAt: string; externalData?: { source?: string; reliability?: string; lastUpdated?: string; metadata?: { source_name?: string; last_updated_timestamp?: string } } };
 type PolicyResponse = { policy: { status: string; coverageAmount: number; premiumPaid: number; endDate: string } | null };
-type ZoneRiskResponse = { zones: Array<{ risk_level: string; reason: string }> };
+type ZoneRiskResponse = { zones: Array<{ zone?: string; risk_level: string; reason: string; data_label?: string; source?: string; last_updated?: string; reliability?: string }> };
+type PolicyTermsResponse = {
+  waiting_period_hours: number;
+  max_claims_per_week: number;
+  exclusions: string[];
+  coverage_rules: string[];
+};
 type PolicySummaryResponse = {
   activeCoverageHours: number;
   estimatedMonthlySaving: number;
@@ -28,9 +34,10 @@ type WorkerSummaryResponse = {
   autoShutoffApplied?: boolean;
 };
 type SystemStatusResponse = {
-  lastScanAt: string | null;
-  nextScanAt: string | null;
-  lastTriggerDetected: string | null;
+  last_scan_time: string | null;
+  next_scan_time: string | null;
+  last_trigger_detected: { trigger?: string; detectedAt?: string; source?: string; reliability?: string } | null;
+  last_auto_claim_created: { claimId?: string; trigger?: string; status?: string; createdAt?: string; processedAt?: string } | null;
   triggersDetected: Array<Record<string, unknown> | string>;
   scanIntervalMinutes: number;
 };
@@ -38,12 +45,23 @@ type WeatherMetadataResponse = {
   source_name: string;
   last_updated_timestamp: string;
   location: string;
+  reliability_flag?: string;
 };
-
-const zoneInputs: Record<string, { weather: number; traffic: number; location: number }> = {
-  "Delhi NCR": { weather: 72, traffic: 80, location: 68 },
-  "Mumbai South": { weather: 88, traffic: 76, location: 74 },
-  "Bangalore Central": { weather: 56, traffic: 62, location: 52 },
+type PayoutSummaryResponse = {
+  total_payout_received: number;
+  total_claims_approved: number;
+  last_payout: {
+    amount: number;
+    transaction_id: string;
+    method: string;
+    timestamp: string;
+  } | null;
+  coverage_status: string;
+  active_policy: {
+    coverage_amount: number;
+    max_payout_per_event: number;
+  };
+  coverage_utilized_percent: number;
 };
 
 const containerVariants = {
@@ -97,8 +115,9 @@ export default function DashboardPage() {
   const [claims, setClaims] = useState<Claim[]>([]);
   const [policy, setPolicy] = useState<PolicyResponse["policy"]>(null);
   const [premium, setPremium] = useState<PremiumResponse | null>(null);
+  const [policyTerms, setPolicyTerms] = useState<PolicyTermsResponse | null>(null);
   const [policySummary, setPolicySummary] = useState<PolicySummaryResponse | null>(null);
-  const [risk, setRisk] = useState({ label: "Loading", reason: "Fetching live zone signal" });
+  const [risk, setRisk] = useState({ label: "Loading", reason: "Fetching live zone signal", source: "Unknown", lastUpdated: "", reliability: "fallback" });
   const [policyToggleState, setPolicyToggleState] = useState<"ON" | "OFF">("OFF");
   const [policyHistory, setPolicyHistory] = useState<WorkerSummaryResponse["recentToggles"]>([]);
   const [toggleLoading, setToggleLoading] = useState(false);
@@ -108,13 +127,15 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [systemStatus, setSystemStatus] = useState<SystemStatusResponse>({
-    lastScanAt: null,
-    nextScanAt: null,
-    lastTriggerDetected: null,
+    last_scan_time: null,
+    next_scan_time: null,
+    last_trigger_detected: null,
+    last_auto_claim_created: null,
     triggersDetected: [],
     scanIntervalMinutes: 15,
   });
   const [weatherMetadata, setWeatherMetadata] = useState<WeatherMetadataResponse | null>(null);
+  const [payoutSummary, setPayoutSummary] = useState<PayoutSummaryResponse | null>(null);
   const [showToggleModal, setShowToggleModal] = useState(false);
   const [modalRiskData, setModalRiskData] = useState<ZoneRiskResponse | null>(null);
   const [toastMessage, setToastMessage] = useState("");
@@ -133,35 +154,40 @@ export default function DashboardPage() {
     setError("");
     setToggleError("");
     try {
-      const inputs = zoneInputs[user.zone || "Delhi NCR"] || zoneInputs["Delhi NCR"];
-      const [claimsData, policyData, riskData, premiumData, systemStatusData, weatherMetadataData] = await Promise.all([
+      const [claimsData, policyData, riskData, premiumData, systemStatusData, weatherMetadataData, policyTermsData, payoutSummaryData] = await Promise.all([
         apiFetch<Claim[]>("/api/claim/history"),
         apiFetch<PolicyResponse>("/api/policy/current"),
         apiFetch<ZoneRiskResponse>("/api/risk/zone-risk"),
-        apiFetch<Record<string, unknown>>("/api/risk/premium-breakdown", {
+        apiFetch<Record<string, unknown>>("/api/policy/quote", {
           method: "POST",
-          body: JSON.stringify({
-            weather: inputs.weather,
-            traffic: inputs.traffic,
-            location: inputs.location,
-            persona_type: user.personaType || "FOOD_DELIVERY"
-          })
+          body: JSON.stringify({ userId: user.id })
         }),
         apiFetch<SystemStatusResponse>("/system/status"),
         apiFetch<WeatherMetadataResponse>("/api/risk/weather-metadata"),
+        apiFetch<PolicyTermsResponse>("/api/policy/terms"),
+        apiFetch<PayoutSummaryResponse>("/api/payout/summary"),
       ]);
       const workerData = await apiFetch<WorkerSummaryResponse>(`/api/worker/${user.id}/summary`);
       const policySummaryData = await apiFetch<PolicySummaryResponse>(`/api/worker/${user.id}/policy/summary`);
+      const userZoneRisk = riskData.zones.find((zone) => zone.zone === user.zone) || riskData.zones[0];
 
       setClaims(claimsData);
       setPolicy(policyData.policy);
       setPremium(normalizePremiumResponse(premiumData));
-      setRisk({ label: riskData.zones[0]?.risk_level || "MEDIUM", reason: riskData.zones[0]?.reason || "No live risk reason returned" });
+      setRisk({
+        label: userZoneRisk?.risk_level || "MEDIUM",
+        reason: userZoneRisk?.reason || "No live risk reason returned",
+        source: userZoneRisk?.source || "GeoShield Zone Risk Engine",
+        lastUpdated: userZoneRisk?.last_updated || "",
+        reliability: userZoneRisk?.reliability || "fallback"
+      });
       setPolicyToggleState(workerData.shiftState || workerData.currentPolicy?.shiftState || "OFF");
       setPolicyHistory(workerData.recentToggles.slice(0, 3));
       setPolicySummary(policySummaryData);
       setSystemStatus(systemStatusData);
       setWeatherMetadata(weatherMetadataData);
+      setPolicyTerms(policyTermsData);
+      setPayoutSummary(payoutSummaryData);
 
       const latestReason = workerData.recentToggles[0]?.reason || "";
       if (latestReason.toLowerCase().includes("auto-shutoff")) {
@@ -198,20 +224,20 @@ export default function DashboardPage() {
   const delta = previousScore !== undefined ? currentScore - previousScore : 0;
   const currentPolicyState = policyToggleState;
 
-  const monitoringStatus = systemStatus.lastScanAt && systemStatus.nextScanAt && new Date(systemStatus.nextScanAt).getTime() > Date.now()
+  const monitoringStatus = systemStatus.last_scan_time && systemStatus.next_scan_time && new Date(systemStatus.next_scan_time).getTime() > Date.now()
     ? "active"
     : "failure";
 
-  const lastAutoClaim = claims.find((claim) => claim.trigger === systemStatus.lastTriggerDetected) || claims[0];
+  const lastAutoClaim = systemStatus.last_auto_claim_created || null;
 
   const automationTimeline = [
     {
       title: "Trigger detected",
-      description: systemStatus.lastTriggerDetected
-        ? `Detected trigger: ${systemStatus.lastTriggerDetected}`
+      description: systemStatus.last_trigger_detected?.trigger
+        ? `Detected trigger: ${systemStatus.last_trigger_detected.trigger}`
         : "No trigger detected yet.",
-      timestamp: systemStatus.lastScanAt,
-      tone: systemStatus.lastTriggerDetected ? "success" : "warning",
+      timestamp: systemStatus.last_trigger_detected?.detectedAt || systemStatus.last_scan_time,
+      tone: systemStatus.last_trigger_detected?.trigger ? "success" : "warning",
     },
     {
       title: "Claim auto-created",
@@ -219,7 +245,7 @@ export default function DashboardPage() {
         ? `Auto claim created with status ${lastAutoClaim.status}`
         : "No auto claim has been created yet.",
       timestamp: lastAutoClaim?.createdAt || null,
-      tone: lastAutoClaim ? (lastAutoClaim.status.toUpperCase() === "REJECTED" ? "danger" : "success") : "warning",
+      tone: lastAutoClaim ? ((lastAutoClaim.status || "").toUpperCase() === "REJECTED" ? "danger" : "success") : "warning",
     },
     {
       title: "Claim processed",
@@ -305,14 +331,13 @@ export default function DashboardPage() {
     if (!user) return;
 
     try {
-      // Fetch current risk data for the modal
       const riskData = await apiFetch<ZoneRiskResponse>("/api/risk/zone-risk");
-      setModalRiskData(riskData);
+      const selectedZone = riskData.zones.find((zone) => zone.zone === user.zone) || riskData.zones[0];
+      setModalRiskData({ zones: selectedZone ? [selectedZone] : [] });
       setShowToggleModal(true);
     } catch (err) {
       console.error("Could not fetch risk data for modal:", err);
-      // Still show modal with default data
-      setModalRiskData({ zones: [{ risk_level: "MEDIUM", reason: "Unable to fetch live risk data" }] });
+      setModalRiskData({ zones: [{ zone: user.zone, risk_level: "MEDIUM", reason: "Unable to fetch live risk data" }] });
       setShowToggleModal(true);
     }
   };
@@ -458,15 +483,21 @@ export default function DashboardPage() {
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
             <div className="rounded-3xl border border-white/10 bg-black/10 p-4 light-mode:border-black/10 light-mode:bg-slate-50">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/50 light-mode:text-slate-500">Last auto scan</p>
-              <p className="mt-3 text-base font-black text-white light-mode:text-slate-900">{formatTimestamp(systemStatus.lastScanAt)}</p>
+              <p className="mt-3 text-base font-black text-white light-mode:text-slate-900">{formatTimestamp(systemStatus.last_scan_time)}</p>
             </div>
             <div className="rounded-3xl border border-white/10 bg-black/10 p-4 light-mode:border-black/10 light-mode:bg-slate-50">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/50 light-mode:text-slate-500">Next scan</p>
-              <p className="mt-3 text-base font-black text-white light-mode:text-slate-900">{formatTimestamp(systemStatus.nextScanAt)}</p>
+              <p className="mt-3 text-base font-black text-white light-mode:text-slate-900">{formatTimestamp(systemStatus.next_scan_time)}</p>
             </div>
-            <div className="rounded-3xl border border-white/10 bg-black/10 p-4 light-mode:border-black/10 light-mode:bg-slate-50 sm:col-span-2">
+            <div className="rounded-3xl border border-white/10 bg-black/10 p-4 light-mode:border-black/10 light-mode:bg-slate-50">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/50 light-mode:text-slate-500">Last detected trigger</p>
-              <p className="mt-3 text-base font-black text-white light-mode:text-slate-900">{systemStatus.lastTriggerDetected || "No trigger event detected yet."}</p>
+              <p className="mt-3 text-base font-black text-white light-mode:text-slate-900">{systemStatus.last_trigger_detected?.trigger || "No trigger event detected yet."}</p>
+              <p className="mt-1 text-xs text-white/50 light-mode:text-slate-500">Source: {systemStatus.last_trigger_detected?.source || "Unavailable"} | Reliability: {systemStatus.last_trigger_detected?.reliability || "unknown"}</p>
+            </div>
+            <div className="rounded-3xl border border-white/10 bg-black/10 p-4 light-mode:border-black/10 light-mode:bg-slate-50">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/50 light-mode:text-slate-500">Last auto-claim created</p>
+              <p className="mt-3 text-base font-black text-white light-mode:text-slate-900">{formatTimestamp(systemStatus.last_auto_claim_created?.createdAt)}</p>
+              <p className="mt-1 text-xs text-white/50 light-mode:text-slate-500">Status: {systemStatus.last_auto_claim_created?.status || "Unavailable"}</p>
             </div>
           </div>
 
@@ -482,6 +513,9 @@ export default function DashboardPage() {
                 </p>
                 <p className="text-sm text-white/70 light-mode:text-slate-600">
                   <span className="font-semibold">Location:</span> {weatherMetadata.location}
+                </p>
+                <p className="text-sm text-white/70 light-mode:text-slate-600">
+                  <span className="font-semibold">Reliability:</span> {weatherMetadata.reliability_flag || "unknown"}
                 </p>
               </div>
             ) : (
@@ -570,7 +604,7 @@ export default function DashboardPage() {
           </div>
 
           {policySummary?.activeCoverageHours === 0 && (
-            <p className="mt-3 text-gray-500 text-sm">Toggle coverage ON during your next shift to start tracking savings. Workers save an average of 38% compared to always-on plans.</p>
+            <p className="mt-3 text-gray-500 text-sm">Toggle coverage ON during your next shift to start tracking real savings from your own coverage history.</p>
           )}
 
           <div className="mt-6 border-t border-white/10 pt-5 light-mode:border-black/10">
@@ -605,18 +639,68 @@ export default function DashboardPage() {
         </motion.div>
 
         <motion.div variants={containerVariants} className="space-y-6">
+          <motion.div variants={itemVariants} className="rounded-4xl border border-white/10 bg-white/3 p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-300 light-mode:text-emerald-700">Payout Summary</p>
+                <h3 className="mt-3 text-2xl font-black text-white light-mode:text-slate-900">Your earnings are protected during disruptions</h3>
+              </div>
+              <Link href="/payouts" className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-xs font-bold text-emerald-200 light-mode:text-emerald-700 transition hover:bg-emerald-500/20">
+                View All Payouts
+              </Link>
+            </div>
+
+            {payoutSummary && payoutSummary.total_payout_received > 0 ? (
+              <div className="mt-6 grid gap-4 md:grid-cols-2">
+                <div className="rounded-3xl border border-emerald-500/20 bg-emerald-500/10 p-5">
+                  <p className="text-xs uppercase tracking-[0.18em] text-emerald-200 light-mode:text-emerald-700">Total Protected Earnings</p>
+                  <p className="mt-3 text-4xl font-black text-white light-mode:text-slate-900">💰 {formatCurrency(payoutSummary.total_payout_received)}</p>
+                  <p className="mt-2 text-sm text-white/70 light-mode:text-slate-600">Coverage utilized: {payoutSummary.coverage_utilized_percent}%</p>
+                </div>
+                <div className="rounded-3xl border border-white/10 bg-black/10 p-5 light-mode:border-black/10 light-mode:bg-slate-50">
+                  <p className="text-xs uppercase tracking-[0.18em] text-white/50 light-mode:text-slate-500">Claims Approved</p>
+                  <p className="mt-3 text-3xl font-black text-white light-mode:text-slate-900">📄 {payoutSummary.total_claims_approved}</p>
+                  <p className="mt-2 text-sm text-white/70 light-mode:text-slate-600">Coverage status: {payoutSummary.coverage_status}</p>
+                </div>
+                <div className="rounded-3xl border border-white/10 bg-black/10 p-5 light-mode:border-black/10 light-mode:bg-slate-50">
+                  <p className="text-xs uppercase tracking-[0.18em] text-white/50 light-mode:text-slate-500">Last Payout</p>
+                  <p className="mt-3 text-lg font-black text-white light-mode:text-slate-900">{formatCurrency(payoutSummary.last_payout?.amount || 0)}</p>
+                  <p className="mt-2 text-sm text-white/70 light-mode:text-slate-600">Method: {payoutSummary.last_payout?.method || "Unavailable"}</p>
+                  <p className="mt-1 text-sm text-white/70 light-mode:text-slate-600">Transaction ID: {payoutSummary.last_payout?.transaction_id || "Unavailable"}</p>
+                  <p className="mt-1 text-sm text-white/70 light-mode:text-slate-600">Time: {formatTimestamp(payoutSummary.last_payout?.timestamp)}</p>
+                </div>
+                <div className="rounded-3xl border border-white/10 bg-black/10 p-5 light-mode:border-black/10 light-mode:bg-slate-50">
+                  <p className="text-xs uppercase tracking-[0.18em] text-white/50 light-mode:text-slate-500">Coverage Status</p>
+                  <p className="mt-3 text-lg font-black text-white light-mode:text-slate-900">{payoutSummary.coverage_status}</p>
+                  <p className="mt-2 text-sm text-white/70 light-mode:text-slate-600">Coverage amount: {formatCurrency(payoutSummary.active_policy.coverage_amount)}</p>
+                  <p className="mt-1 text-sm text-white/70 light-mode:text-slate-600">Max payout/event: {formatCurrency(payoutSummary.active_policy.max_payout_per_event)}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-6 rounded-3xl border border-dashed border-white/10 px-5 py-8 text-sm text-white/60 light-mode:border-black/10 light-mode:text-slate-600">
+                No payouts yet. You're covered when disruptions occur.
+              </div>
+            )}
+          </motion.div>
+
           <motion.div variants={itemVariants} className="rounded-4xl border border-white/10 bg-white/3 p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-xl overflow-hidden group">
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/50 light-mode:text-slate-500">Risk Level</p>
             <h3 className="mt-3 text-3xl font-black text-white light-mode:text-slate-900 group-hover:text-indigo-400 transition-colors">{risk.label}</h3>
             <p className="mt-3 text-sm text-white/65 light-mode:text-slate-600">{risk.reason}</p>
+            <div className="mt-4 space-y-1 text-xs text-white/55 light-mode:text-slate-500">
+              <p>Source: {risk.source}</p>
+              <p>Last updated: {formatTimestamp(risk.lastUpdated)}</p>
+              <p>Reliability: {risk.reliability}</p>
+            </div>
           </motion.div>
 
           <motion.div variants={itemVariants} className="rounded-4xl border border-white/10 bg-white/3 p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-xl">
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/50 light-mode:text-slate-500">Policy Terms</p>
             <div className="mt-4 space-y-3 text-sm text-white/70 light-mode:text-slate-600">
-              <div className="flex items-center justify-between"><span>Waiting period</span><span className="font-bold">24 hours after activation</span></div>
-              <div className="flex items-center justify-between"><span>Max claims per week</span><span className="font-bold">1 claim</span></div>
-              <div className="flex items-center justify-between"><span>Exclusions</span><span className="font-bold">Outside coverage hours, Inactive policy, Repeated claims</span></div>
+              <div className="flex items-center justify-between"><span>Waiting period</span><span className="font-bold">{policyTerms?.waiting_period_hours ?? 24} hours after activation</span></div>
+              <div className="flex items-center justify-between"><span>Max claims per week</span><span className="font-bold">{policyTerms?.max_claims_per_week ?? 1} claim</span></div>
+              <div className="flex items-center justify-between"><span>Coverage rules</span><span className="font-bold">{policyTerms?.coverage_rules?.length ?? 0} rules</span></div>
+              <div className="text-xs text-white/55 light-mode:text-slate-500">Exclusions: {policyTerms?.exclusions?.join(", ") || "Loading..."}</div>
             </div>
           </motion.div>
         </motion.div>
@@ -656,6 +740,9 @@ export default function DashboardPage() {
                   {claim.status === 'REJECTED' && claim.reasons && claim.reasons.length > 0 && (
                     <span className="text-red-400">Reason: {claim.reasons.join(', ')}</span>
                   )}
+                </div>
+                <div className="mt-2 text-xs text-white/50 light-mode:text-slate-500">
+                  Source: {claim.externalData?.source || claim.externalData?.metadata?.source_name || "Unavailable"} | Updated: {formatTimestamp(claim.externalData?.lastUpdated || claim.externalData?.metadata?.last_updated_timestamp)}
                 </div>
               </motion.div>
             ))}
@@ -721,8 +808,8 @@ export default function DashboardPage() {
 
               {/* Estimated Payout */}
               <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                <p className="text-sm font-medium text-slate-700">
-                  If you experience {modalRiskData?.zones[0]?.reason?.toLowerCase() || "a disruption"} today, estimated payout: ₹{policy?.coverageAmount ? Math.round(policy.coverageAmount * 0.8) : "2,500"}
+                  <p className="text-sm font-medium text-slate-700">
+                  If a covered disruption occurs today, your maximum configured protection is ₹{policy?.coverageAmount ?? "0"}.
                 </p>
               </div>
 

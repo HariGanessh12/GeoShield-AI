@@ -8,18 +8,20 @@ router.get('/status', async (req, res) => {
         const status = await SystemStatus.findOne({ name: 'automatedTriggerMonitor' }).lean();
         if (!status) {
             return sendSuccess(res, {
-                lastScanAt: null,
-                nextScanAt: null,
-                lastTriggerDetected: null,
+                last_scan_time: null,
+                next_scan_time: null,
+                last_trigger_detected: null,
+                last_auto_claim_created: null,
                 triggersDetected: [],
                 scanIntervalMinutes: 15
             });
         }
 
         return sendSuccess(res, {
-            lastScanAt: status.lastScanAt,
-            nextScanAt: status.nextScanAt,
-            lastTriggerDetected: status.lastTriggerDetected,
+            last_scan_time: status.lastScanAt,
+            next_scan_time: status.nextScanAt,
+            last_trigger_detected: status.lastTriggerDetected || null,
+            last_auto_claim_created: status.lastAutoClaimCreated || null,
             triggersDetected: status.triggersDetected || [],
             scanIntervalMinutes: status.scanIntervalMinutes || 15
         });

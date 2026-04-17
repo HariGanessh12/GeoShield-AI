@@ -1,12 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 const { verifyToken, verifyAdmin } = require('../middleware/authMiddleware');
 const { sendSuccess, sendError } = require('../utils/http');
 const { createValidator, validators } = require('../utils/validation');
-
-const JWT_SECRET = process.env.JWT_SECRET || 'geoshield_super_secret_key_2026';
+const { comparePassword } = require('../services/passwordService');
+const { createAuthToken, setAuthCookie, clearAuthCookie } = require('../services/sessionService');
+const { logInfo, logWarn, logError } = require('../utils/logger');
 const PERSONA_TYPES = ['FOOD_DELIVERY', 'GROCERY_DELIVERY', 'BIKE_TAXI'];
 const ZONES = ['Delhi NCR', 'Mumbai South', 'Bangalore Central', 'N/A'];
 
@@ -24,27 +24,6 @@ function normalizePersonaType(value) {
 
     return aliasMap[raw] || 'FOOD_DELIVERY';
 }
-
-// Seed default admin
-const seedAdmin = async () => {
-    try {
-        const adminExists = await User.findOne({ email: 'admin@gmail.com' });
-        if (!adminExists) {
-            await User.create({
-                email: 'admin@gmail.com',
-                password: 'password',
-                role: 'admin',
-                personaType: 'FOOD_DELIVERY',
-                zone: 'Delhi NCR'
-            });
-            console.log("Default admin created: admin@gmail.com");
-        }
-    } catch (e) {
-        console.error("DB wait for seed");
-    }
-};
-// Exec
-setTimeout(seedAdmin, 3000);
 
 router.post('/register', createValidator([
     { source: 'body', field: 'email', check: validators.email('email') },
@@ -66,11 +45,13 @@ router.post('/register', createValidator([
             zone: zone || 'Delhi NCR', 
             reputationScore: 85 
         });
+        logInfo('auth.registered', { userId: String(user._id), email: user.email, role: user.role });
         return sendSuccess(res, {
             message: "Registered successfully",
-            user: { email: user.email, role: user.role, personaType: user.personaType, zone: user.zone }
+            user: { id: String(user._id), email: user.email, role: user.role, personaType: user.personaType, zone: user.zone }
         });
     } catch (e) {
+        logError('auth.register_failed', e, { email });
         return sendError(res, 500, "Registration failed");
     }
 });
@@ -82,9 +63,16 @@ router.post('/login', createValidator([
     try {
         const { email, password } = req.body;
         
-        const user = await User.findOne({ email, password });
-        if (!user) {
+        const user = await User.findOne({ email });
+        const isValid = await comparePassword(password, user?.password);
+        if (!user || !isValid) {
+            logWarn('auth.login_failed', { email });
             return sendError(res, 401, "Invalid email or password.");
+        }
+
+        if (user.password && !String(user.password).startsWith('$2')) {
+            user.password = password;
+            await user.save();
         }
 
         const payload = {
@@ -95,13 +83,24 @@ router.post('/login', createValidator([
             zone: user.zone
         };
 
-        const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
+        const token = createAuthToken(payload);
+        setAuthCookie(res, token);
+        logInfo('auth.login_success', { userId: String(user._id), email: user.email, role: user.role });
 
-        return sendSuccess(res, { token, user: payload });
+        return sendSuccess(res, { user: payload, session: { transport: 'httpOnlyCookie' } });
     } catch (error) {
-        console.error("Login Route Error:", error);
+        logError('auth.login_error', error, { email: req.body?.email });
         return sendError(res, 500, "Internal Server Error or DB Timeout.");
     }
+});
+
+router.post('/logout', async (req, res) => {
+    clearAuthCookie(res);
+    return sendSuccess(res, { message: 'Logged out' });
+});
+
+router.get('/session', verifyToken, async (req, res) => {
+    return sendSuccess(res, { user: req.user });
 });
 
 // Admin User Management endpoints

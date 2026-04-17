@@ -1,4 +1,4 @@
-﻿import { clearSession, getToken } from "@/utils/auth";
+import { clearSession } from "@/utils/auth";
 
 const DEFAULT_API_BASE_URL = "https://geoshield-ai-2.onrender.com";
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || "";
@@ -17,12 +17,11 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
     requestHeaders.set("Content-Type", "application/json");
   }
 
-  if (authenticated) {
-    const token = getToken();
-    if (token) requestHeaders.set("Authorization", `Bearer ${token}`);
-  }
-
-  const response = await fetch(apiUrl(path), { ...rest, headers: requestHeaders });
+  const response = await fetch(apiUrl(path), {
+    ...rest,
+    headers: requestHeaders,
+    credentials: "include",
+  });
 
   if (response.status === 401) {
     clearSession();

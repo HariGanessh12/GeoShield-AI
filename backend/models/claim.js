@@ -3,10 +3,11 @@ const mongoose = require('mongoose');
 const ClaimSchema = new mongoose.Schema({
     workerId: { type: String, required: true },
     policyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Policy' },
+    idempotencyKey: { type: String, default: null, index: { unique: true, sparse: true } },
     trigger: { type: String },
     amount: { type: Number }, // Rename from claimAmount for consistency
     trustScore: { type: Number },
-    status: { type: String },
+    status: { type: String, enum: ['PENDING', 'APPROVED', 'REJECTED', 'VERIFY'], default: 'PENDING' },
     payout: { type: Number },
     reputationScore: { type: Number },
     reasons: { type: [String] },
@@ -17,9 +18,13 @@ const ClaimSchema = new mongoose.Schema({
     reviewedAt: { type: Date, default: null },
     resolutionNote: { type: String, default: '' },
     transactionId: { type: String, default: null },
+    providerReference: { type: String, default: null },
+    payoutProvider: { type: String, default: null },
     payoutStatus: { type: String, default: 'PENDING' },
     payoutProcessedAt: { type: Date, default: null },
     payoutMethod: { type: String, default: null },
+    payoutRecordId: { type: mongoose.Schema.Types.ObjectId, ref: 'Payout', default: null },
+    retryCount: { type: Number, default: 0 },
     location: {
         zone: { type: String },
         coordinates: {
@@ -46,5 +51,6 @@ ClaimSchema.index({ workerId: 1, status: 1, createdAt: -1 });
 ClaimSchema.index({ policyId: 1 });
 ClaimSchema.index({ 'location.zone': 1 });
 ClaimSchema.index({ automated: 1 });
+ClaimSchema.index({ workerId: 1, trigger: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Claim', ClaimSchema);

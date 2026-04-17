@@ -6,8 +6,10 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
+    "start:worker": "node worker.js",
     "test": "jest",
-    "reset:realistic-data": "node scripts/resetRealisticDemoData.js"
+    "reset:realistic-data": "node scripts/resetRealisticDemoData.js",
+    "lint:check": "node -e \"require('./config'); console.log('backend config ok')\""
   },
   "keywords": [],
   "author": "",
@@ -15,6 +17,7 @@
   "type": "commonjs",
   "dependencies": {
     "axios": "^1.6.0",
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",

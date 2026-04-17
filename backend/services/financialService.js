@@ -41,22 +41,32 @@ async function getBusinessMetrics() {
         if (lossRatio > 1.0) status = 'UNPROFITABLE';
 
         return {
+            total_users: totalUsers,
+            avg_premium: roundCurrency(avgPremium),
+            total_premium_collected: roundCurrency(totalPremiumCollected),
+            total_claims_paid: roundCurrency(totalClaimsPaid),
+            profit: roundCurrency(profit),
+            loss_ratio: roundCurrency(lossRatio),
             totalUsers,
             avgPremium: roundCurrency(avgPremium),
             totalPremium: roundCurrency(totalPremiumCollected),
             totalClaims: roundCurrency(totalClaimsPaid),
-            profit: roundCurrency(profit),
             lossRatio: roundCurrency(lossRatio),
             status
         };
     } catch (e) {
         console.error("Error calculating business metrics:", e);
         return { 
+            total_users: 0,
+            avg_premium: 0,
+            total_premium_collected: 0,
+            total_claims_paid: 0,
             totalUsers: 0, 
             avgPremium: 0, 
             totalPremium: 0, 
             totalClaims: 0, 
             profit: 0,
+            loss_ratio: 0,
             lossRatio: 0, 
             status: 'ERROR' 
         };

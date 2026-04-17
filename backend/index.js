@@ -9,18 +9,25 @@ const { verifyToken, verifyAdmin } = require('./middleware/authMiddleware');
 const financialService = require('./services/financialService');
 const { sendSuccess, sendError } = require('./utils/http');
 const pkg = require('./package.json');
+const config = require('./config');
+const { logInfo, logError } = require('./utils/logger');
 
 const app = express();
 
-mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/geoshield')
-  .then(() => console.log('✅ Connected to MongoDB GeoShield-AI successfully!'))
-  .catch(err => console.error('❌ MongoDB Connection Error:', err.message));
-
-// Start background jobs
-require('./services/backgroundJobs');
+mongoose.connect(config.mongoUri)
+    .then(() => logInfo('mongo.connected', { env: config.env }))
+    .catch((error) => logError('mongo.connection_error', error));
 
 app.use(express.json());
-app.use(cors());
+app.use(cors({
+    origin(origin, callback) {
+        if (!origin && !config.isProduction) return callback(null, true);
+        if (!origin && config.corsAllowNullOrigin) return callback(null, true);
+        if (origin && config.trustedOrigins.includes(origin)) return callback(null, true);
+        return callback(new Error('Origin not allowed by CORS policy'));
+    },
+    credentials: true
+}));
 app.use(helmet());
 
 app.use((req, res, next) => {
@@ -33,57 +40,62 @@ app.use((req, res, next) => {
 app.use((req, res, next) => {
     const startedAt = Date.now();
     res.on('finish', () => {
-        const durationMs = Date.now() - startedAt;
-        console.log(JSON.stringify({
-            timestamp: new Date().toISOString(),
+        logInfo('http.request.completed', {
             requestId: req.requestId,
             method: req.method,
             path: req.originalUrl,
             statusCode: res.statusCode,
-            durationMs
-        }));
+            durationMs: Date.now() - startedAt
+        });
     });
     next();
 });
 
-// Performance / Security: API Rate Limiter
 const apiLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    limit: 100, // Limit each IP
-    handler: (req, res) => sendError(res, 429, "Too many requests from this IP, please try again after 15 minutes")
+    windowMs: 15 * 60 * 1000,
+    limit: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: (req, res) => sendError(res, 429, 'Too many requests from this IP, please try again after 15 minutes')
 });
 app.use('/api', apiLimiter);
 
-// Basic status route
 app.get('/', (req, res) => sendSuccess(res, { status: 'GeoShield-AI API operational' }));
 app.get('/health', (req, res) => sendSuccess(res, { status: 'healthy' }));
 app.get('/version', (req, res) => sendSuccess(res, {
     service: 'backend',
     name: pkg.name,
     version: pkg.version,
-    environment: process.env.NODE_ENV || 'development'
+    environment: config.env
 }));
 app.get('/admin/financials', verifyToken, verifyAdmin, async (req, res) => {
     try {
         const metrics = await financialService.getBusinessMetrics();
         return sendSuccess(res, metrics);
-    } catch (e) {
-        return sendError(res, 500, "Could not fetch financial metrics");
+    } catch (error) {
+        logError('admin.financials_failed', error, { requestId: req.requestId });
+        return sendError(res, 500, 'Could not fetch financial metrics');
     }
 });
 
-// Feature Routers (Public)
 app.use('/api/auth', require('./api/auth'));
-
-// Protected Routes
 app.use('/api/claim', verifyToken, require('./api/claim'));
 app.use('/api/worker', verifyToken, require('./api/worker'));
 app.use('/api/risk', verifyToken, require('./api/risk'));
 app.use('/api/policy', verifyToken, require('./api/policy'));
 app.use('/api/metrics', verifyToken, require('./api/metrics'));
+app.use('/api/payout', verifyToken, require('./api/payout'));
+app.use('/api/admin', verifyToken, verifyAdmin, require('./api/admin'));
 app.use('/system', require('./api/system'));
 
-const PORT = process.env.PORT || 8000;
-app.listen(PORT, () => {
-    console.log(`[GeoShield-AI] API Gateway listening on port ${PORT}`);
+app.use((error, req, res, next) => {
+    if (error?.message?.includes('CORS')) {
+        return sendError(res, 403, error.message);
+    }
+    logError('http.unhandled_error', error, { requestId: req.requestId, path: req.originalUrl });
+    return sendError(res, 500, 'Unhandled server error');
+});
+
+app.listen(config.port, () => {
+    logInfo('http.server_started', { port: config.port, env: config.env, runJobs: config.runJobs });
 });

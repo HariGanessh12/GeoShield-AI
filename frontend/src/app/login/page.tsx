@@ -9,8 +9,8 @@ import { saveSession } from "@/utils/auth";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("admin@gmail.com");
-  const [password, setPassword] = useState("password");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -19,12 +19,12 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     try {
-      const data = await apiFetch<{ token: string; user: { id: string; email: string; role: "worker" | "admin"; personaType?: string; zone?: string } }>("/api/auth/login", {
+      const data = await apiFetch<{ user: { id: string; email: string; role: "worker" | "admin"; personaType?: string; zone?: string } }>("/api/auth/login", {
         method: "POST",
         authenticated: false,
         body: JSON.stringify({ email, password }),
       });
-      saveSession(data.token, data.user);
+      saveSession(data.user);
       router.push(data.user.role === "admin" ? "/admin" : "/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");

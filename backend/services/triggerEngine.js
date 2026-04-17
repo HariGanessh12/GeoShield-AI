@@ -10,13 +10,6 @@ const triggerMetadata = {
     TRAFFIC_SURGE: { label: 'Traffic Surge', threshold: 0.58, baseLossAmount: 350 }
 };
 
-const zoneTrafficSeverity = {
-    'Delhi NCR': 0.78,
-    'Mumbai South': 0.72,
-    'Bangalore Central': 0.64,
-    'N/A': 0.4
-};
-
 function round2(value) {
     return Math.round(Number(value || 0) * 100) / 100;
 }
@@ -24,19 +17,6 @@ function round2(value) {
 async function detectTrigger(type, zone) {
     const metadata = triggerMetadata[type];
     if (!metadata) return null;
-
-    if (type === 'TRAFFIC_SURGE') {
-        const severityScore = zoneTrafficSeverity[zone] || 0.5;
-        return {
-            type,
-            label: metadata.label,
-            severityScore,
-            threshold: metadata.threshold,
-            eligible: severityScore >= metadata.threshold,
-            lossAmount: round2(metadata.baseLossAmount * (0.9 + severityScore / 2)),
-            reason: `Traffic surge pressure detected in ${zone || 'the worker zone'}`
-        };
-    }
 
     const externalData = await getExternalData(type, zone);
     const severityScore = Number(externalData?.severityScore || 0);
@@ -47,7 +27,10 @@ async function detectTrigger(type, zone) {
         threshold: metadata.threshold,
         eligible: severityScore >= metadata.threshold,
         lossAmount: round2(metadata.baseLossAmount * (0.9 + severityScore / 2)),
-        reason: `${metadata.label} detected for ${zone || 'the worker zone'}`
+        reason: `${metadata.label} detected for ${zone || 'the worker zone'}`,
+        dataSource: externalData?.source || 'Unknown',
+        reliability: externalData?.reliability || 'fallback',
+        lastUpdated: externalData?.lastUpdated || null
     };
 }
 

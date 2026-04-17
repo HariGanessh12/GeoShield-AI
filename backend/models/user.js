@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { hashPassword, isBcryptHash } = require('../services/passwordService');
 
 const UserSchema = new mongoose.Schema({
     email: { type: String, required: true, unique: true },
@@ -16,5 +17,17 @@ const UserSchema = new mongoose.Schema({
 // Performance: Add DB Indexes for common querying patterns
 UserSchema.index({ zone: 1 });
 UserSchema.index({ role: 1 });
+
+UserSchema.pre('save', async function hashUserPassword(next) {
+    if (!this.isModified('password')) return next();
+    if (isBcryptHash(this.password)) return next();
+
+    try {
+        this.password = await hashPassword(this.password);
+        next();
+    } catch (error) {
+        next(error);
+    }
+});
 
 module.exports = mongoose.model('User', UserSchema);

@@ -2,121 +2,81 @@ const express = require('express');
 const router = express.Router();
 const { sendSuccess, sendError } = require('../utils/http');
 const externalDataService = require('../services/externalDataService');
+const { calculatePremium } = require('../services/pricingEngine');
 
-router.get('/zone-risk', (req, res) => {
-    return sendSuccess(res, {
-        zones: [
-            { lat: 28.6139, lng: 77.2090, risk_level: "HIGH", reason: "Severe AQI with reduced outdoor work tolerance during peak delivery hours" },
-            { lat: 19.0760, lng: 72.8777, risk_level: "MEDIUM", reason: "Localized heavy rain is slowing rider throughput near coastal routes" },
-            { lat: 12.9716, lng: 77.5946, risk_level: "LOW", reason: "Road conditions and platform uptime remain stable across the core service zone" }
-        ]
-    });
+const ZONES = ['Delhi NCR', 'Mumbai South', 'Bangalore Central'];
+const EVENTS = ['HEATWAVE', 'HEAVY_RAIN', 'AQI_SEVERE'];
+
+function mapSeverityToRiskLevel(score) {
+    if (score >= 0.7) return 'HIGH';
+    if (score >= 0.45) return 'MEDIUM';
+    return 'LOW';
+}
+
+router.get('/zone-risk', async (req, res) => {
+    try {
+        const zones = await Promise.all(ZONES.map(async (zone) => {
+            const summary = await externalDataService.getZoneRiskSummary(zone);
+            const averageSeverity = summary.severityScore;
+            return {
+                zone,
+                risk_level: mapSeverityToRiskLevel(averageSeverity),
+                severity_score: Number(averageSeverity.toFixed(2)),
+                reason: summary.dominantSignal?.eventType || 'NORMAL',
+                data_label: summary.reliability === 'real' ? 'Live data' : summary.reliability === 'mixed' ? 'Mixed live/fallback data' : 'Simulated data (fallback)',
+                source: summary.source,
+                last_updated: summary.last_updated,
+                reliability: summary.reliability,
+                signals: summary.signals.map((signal) => ({
+                    category: signal.category,
+                    source: signal.source,
+                    reliability: signal.reliability,
+                    last_updated: signal.lastUpdated,
+                    severity_score: signal.severityScore
+                }))
+            };
+        }));
+
+        return sendSuccess(res, { zones });
+    } catch (error) {
+        return sendError(res, 500, 'Could not compute zone risk');
+    }
 });
 
 router.get('/weather-metadata', async (req, res) => {
     try {
-        const user = req.user; // Assuming user is set by auth middleware
-        const zone = user?.zone || 'Delhi NCR';
-        const coords = { lat: 28.7041, lon: 77.1025 }; // Default to Delhi NCR, could map zones
-
-        // Get weather data which includes metadata
-        const weatherData = await externalDataService.getWeatherData(coords.lat, coords.lon, zone, 'NORMAL');
-
+        const zone = req.user?.zone || 'Delhi NCR';
+        const coords = externalDataService.zoneCoordinates[zone] || externalDataService.zoneCoordinates['Delhi NCR'];
+        const weatherData = await externalDataService.getWeatherSignal(zone, 'HEATWAVE');
         return sendSuccess(res, weatherData.metadata);
     } catch (error) {
-        console.error('[Risk API] Weather metadata error:', error.message);
         return sendSuccess(res, {
-            source_name: 'Fallback Mock Data',
+            source_name: 'Simulated data (fallback)',
             last_updated_timestamp: new Date().toISOString(),
-            location: 'Unknown'
+            location: req.user?.zone || 'Unknown',
+            reliability_flag: 'fallback'
         });
     }
 });
 
 router.post('/premium-breakdown', async (req, res) => {
-    console.log("[Backend] Received request for /premium-breakdown");
-    const { weather, traffic, location, persona_type } = req.body || {};
-
     try {
-        console.log("[Backend] Attempting to reach ML microservice at port 8001...");
-        const response = await fetch("http://localhost:8001/risk-score", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                weather: weather || 50,
-                traffic: traffic || 50,
-                location: location || 50,
-                persona_type: persona_type || "FOOD_DELIVERY"
-            })
+        const payload = calculatePremium({
+            weather: req.body?.weather || 50,
+            traffic: req.body?.traffic || 50,
+            location: req.body?.location || 50,
+            persona_type: req.body?.persona_type || req.user?.personaType || 'FOOD_DELIVERY',
+            reputation_score: req.body?.reputation_score || 85,
+            zone: req.user?.zone || 'Delhi NCR',
+            claim_history: []
         });
 
-        if (!response.ok) {
-            throw new Error(`FastAPI Risk Model Error: ${response.statusText}`);
-        }
-        
-        const premiumData = await response.json();
-        console.log("[Backend] ML microservice response received.");
-        
-        // Standardize the response format
-        const standardizedResponse = {
-            base_premium: premiumData.expected_loss || 0,
-            risk_adjustment: premiumData.risk_margin || 0,
-            platform_fee: 15.0,
-            final_premium: premiumData.weekly_premium_inr || premiumData.final_premium || 0,
-            risk_level: premiumData.risk_level,
-            risk_score: premiumData.risk_score,
-            breakdown: premiumData.breakdown || {}
-        };
-        
-        return sendSuccess(res, standardizedResponse);
-    } catch(err) {
-        console.error("[Backend] FastAPI connection failed, using local fallback. Error:", err.message);
-        
-        try {
-            // Mock fallback logic mirroring the ai-engine/risk_model.py implementation
-            const weather_val = Number(weather) || 50;
-            const traffic_val = Number(traffic) || 50;
-            const location_val = Number(location) || 50;
-            const persona = persona_type || "FOOD_DELIVERY";
-
-            let persona_multiplier = 1.0;
-            if (persona === "GROCERY_DELIVERY") persona_multiplier = 1.2;
-            else if (persona === "BIKE_TAXI") persona_multiplier = 1.5;
-
-            // Actuarial logic from the Python model
-            const base_probability = Math.min(Math.max((weather_val * 0.4 + location_val * 0.3 + traffic_val * 0.2) / 100.0, 0.01), 0.30);
-            const adjusted_probability = base_probability * persona_multiplier;
-
-            const expected_loss = adjusted_probability * 1000.0;
-            const risk_margin = expected_loss * 0.30;
-            const weekly_premium = Math.max(55.0, expected_loss + risk_margin + 15.0);
-
-            const risk_score = (adjusted_probability / 0.30) * 100;
-            let risk_level = "LOW";
-            if (risk_score > 60) risk_level = "HIGH";
-            else if (risk_score > 30) risk_level = "MEDIUM";
-
-            const payload = {
-                base_premium: Math.round(expected_loss * 100) / 100,
-                risk_adjustment: Math.round(risk_margin * 100) / 100,
-                platform_fee: 15.0,
-                final_premium: Math.round(weekly_premium * 100) / 100,
-                risk_level,
-                risk_score: Math.round(risk_score * 100) / 100,
-                breakdown: {
-                    "Base Premium": `₹${Math.round(expected_loss * 100) / 100}`,
-                    "Risk Adjustment": `₹${Math.round(risk_margin * 100) / 100}`,
-                    "Platform Fee": "₹15.0",
-                    "Final Premium": `₹${Math.round(weekly_premium * 100) / 100}`
-                },
-                is_mock: true
-            };
-            console.log("[Backend] Local fallback payload generated.");
-            return sendSuccess(res, payload);
-        } catch (innerErr) {
-            console.error("[Backend] CRITICAL: Fallback logic failed:", innerErr.message);
-            return sendError(res, 500, "Internal server error in risk assessment fallback.");
-        }
+        return sendSuccess(res, {
+            ...payload,
+            data_label: 'Live pricing engine'
+        });
+    } catch (error) {
+        return sendError(res, 500, 'Internal server error in risk assessment.');
     }
 });
 

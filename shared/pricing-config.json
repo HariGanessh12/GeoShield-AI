@@ -1,0 +1,23 @@
+{
+  "intercept": -3.5,
+  "weatherCoefficient": 0.025,
+  "trafficCoefficient": 0.018,
+  "locationCoefficient": 0.022,
+  "personaMultipliers": {
+    "FOOD_DELIVERY": 1.0,
+    "GROCERY_DELIVERY": 1.15,
+    "BIKE_TAXI": 1.25
+  },
+  "zoneAdjustments": {
+    "Delhi NCR": 1.0,
+    "Mumbai South": 1.05,
+    "Bangalore Central": 0.95,
+    "N/A": 1.0
+  },
+  "averagePayoutDefault": 400,
+  "platformFee": 15,
+  "riskMarginRate": 0.3,
+  "minimumPremium": 55,
+  "maximumProbability": 0.35,
+  "minimumProbability": 0.005
+}

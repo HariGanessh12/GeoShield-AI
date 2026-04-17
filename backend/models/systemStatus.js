@@ -5,6 +5,7 @@ const SystemStatusSchema = new mongoose.Schema({
     lastScanAt: { type: Date, default: null },
     nextScanAt: { type: Date, default: null },
     lastTriggerDetected: { type: Object, default: null },
+    lastAutoClaimCreated: { type: Object, default: null },
     triggersDetected: { type: [Object], default: [] },
     scanIntervalMinutes: { type: Number, default: 15 },
     updatedAt: { type: Date, default: Date.now }
