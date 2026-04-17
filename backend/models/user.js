@@ -18,16 +18,11 @@ const UserSchema = new mongoose.Schema({
 UserSchema.index({ zone: 1 });
 UserSchema.index({ role: 1 });
 
-UserSchema.pre('save', async function hashUserPassword(next) {
-    if (!this.isModified('password')) return next();
-    if (isBcryptHash(this.password)) return next();
+UserSchema.pre('save', async function hashUserPassword() {
+    if (!this.isModified('password')) return;
+    if (isBcryptHash(this.password)) return;
 
-    try {
-        this.password = await hashPassword(this.password);
-        next();
-    } catch (error) {
-        next(error);
-    }
+    this.password = await hashPassword(this.password);
 });
 
 module.exports = mongoose.model('User', UserSchema);

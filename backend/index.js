@@ -14,6 +14,9 @@ const { logInfo, logError } = require('./utils/logger');
 
 const app = express();
 
+// Render and similar platforms terminate TLS upstream and forward client IPs via X-Forwarded-For.
+app.set('trust proxy', config.isProduction ? 1 : false);
+
 app.use(express.json());
 app.use(cors({
     origin(origin, callback) {
