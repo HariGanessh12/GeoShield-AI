@@ -9,8 +9,8 @@ import { saveSession } from "@/utils/auth";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("admin@gmail.com");
+  const [password, setPassword] = useState("password");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -53,6 +53,9 @@ export default function LoginPage() {
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded-2xl border border-white/10 bg-black/30 px-5 py-3.5 text-white outline-none transition focus:border-indigo-400 light-mode:border-slate-200 light-mode:bg-slate-50 light-mode:text-slate-900" />
           </div>
           {error ? <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200 light-mode:border-rose-200 light-mode:bg-rose-50 light-mode:text-rose-700">{error}</div> : null}
+          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-xs text-amber-100 light-mode:border-amber-200 light-mode:bg-amber-50 light-mode:text-amber-700">
+            Demo login prefilled: <span className="font-bold">admin@gmail.com</span> / <span className="font-bold">password</span>
+          </div>
           <button type="submit" disabled={loading} className="w-full rounded-2xl bg-gradient-to-r from-indigo-500 to-sky-500 py-4 font-bold text-white shadow-lg shadow-indigo-500/20 disabled:opacity-50 light-mode:from-slate-950 light-mode:to-slate-800">{loading ? "Authenticating..." : "Sign In"}</button>
         </form>
         <div className="mt-6 text-center text-sm text-white/55 light-mode:text-slate-500">

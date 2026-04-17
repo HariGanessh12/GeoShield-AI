@@ -8,6 +8,10 @@ function parseCsv(value, fallback = []) {
         .filter(Boolean);
 }
 
+function unique(values) {
+    return [...new Set(values.filter(Boolean))];
+}
+
 function toBoolean(value, fallback = false) {
     if (value === undefined || value === null || value === '') return fallback;
     return ['1', 'true', 'yes', 'on'].includes(String(value).toLowerCase());
@@ -23,6 +27,12 @@ function requireValue(name, fallback) {
 
 const ROOT_DIR = path.resolve(__dirname, '..', '..');
 
+const defaultTrustedOrigins = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'https://geo-shield-ai.vercel.app'
+];
+
 const config = {
     env: process.env.NODE_ENV || 'development',
     port: Number(process.env.PORT || 8000),
@@ -31,9 +41,9 @@ const config = {
     jwtExpiry: process.env.JWT_EXPIRY || '1d',
     cookieName: process.env.AUTH_COOKIE_NAME || 'geoshield_session',
     cookieDomain: process.env.AUTH_COOKIE_DOMAIN || undefined,
-    trustedOrigins: parseCsv(process.env.TRUSTED_ORIGINS, [
-        'http://localhost:3000',
-        'http://127.0.0.1:3000'
+    trustedOrigins: unique([
+        ...defaultTrustedOrigins,
+        ...parseCsv(process.env.TRUSTED_ORIGINS, [])
     ]),
     corsAllowNullOrigin: toBoolean(process.env.CORS_ALLOW_NULL_ORIGIN, false),
     aiEngineBaseUrl: process.env.AI_ENGINE_BASE_URL || 'http://localhost:8001',
