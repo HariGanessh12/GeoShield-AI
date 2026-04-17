@@ -332,10 +332,35 @@ router.post('/zero-touch-scan', async (req, res) => {
             return sendError(res, 404, "Worker not found");
         }
 
-        const policy = normalizePolicy(await Policy.findOne({ workerId, status: 'active' }).lean());
+        // Get policy with error handling
+        let policy = { shiftState: 'OFF' };
+        try {
+            const dbPolicy = await Policy.findOne({ workerId, status: 'active' }).lean();
+            policy = normalizePolicy(dbPolicy);
+        } catch (err) {
+            console.warn('[Claim/ZeroTouch] Failed to fetch policy:', err.message);
+            // Continue with default policy
+        }
+
         const shiftState = policy.shiftState || 'OFF';
-        const feed = evaluateTriggerEligibility(await buildTriggerFeed(user.zone), policy, shiftState);
-        const recommendedTrigger = selectRecommendedTrigger(feed);
+        
+        // Build trigger feed with error handling
+        let feed = [];
+        let recommendedTrigger = null;
+        try {
+            const rawFeed = await buildTriggerFeed(user.zone);
+            feed = evaluateTriggerEligibility(rawFeed || [], policy, shiftState);
+            recommendedTrigger = selectRecommendedTrigger(feed);
+        } catch (err) {
+            console.error('[Claim/ZeroTouch] Failed to build trigger feed:', err.message);
+            // Return success but no auto-claim instead of 500 error
+            return sendSuccess(res, {
+                message: "Could not evaluate triggers at this time. Please file a manual claim.",
+                automated: false,
+                triggers: [],
+                _meta: { error: 'trigger_evaluation_failed' }
+            });
+        }
 
         if (!recommendedTrigger) {
             return sendSuccess(res, {
@@ -347,17 +372,31 @@ router.post('/zero-touch-scan', async (req, res) => {
             });
         }
 
-        const result = await processClaimForWorker({
-            workerId,
-            disruptionFactor: {
-                type: recommendedTrigger.type,
-                lossAmount: recommendedTrigger.lossAmount
-            },
-            userRecord: user,
-            activePolicy: policy,
-            source: 'zero_touch_scan',
-            triggerSnapshot: recommendedTrigger
-        });
+        // Process claim with error handling
+        let result;
+        try {
+            result = await processClaimForWorker({
+                workerId,
+                disruptionFactor: {
+                    type: recommendedTrigger.type,
+                    lossAmount: recommendedTrigger.lossAmount
+                },
+                userRecord: user,
+                activePolicy: policy,
+                source: 'zero_touch_scan',
+                triggerSnapshot: recommendedTrigger
+            });
+        } catch (err) {
+            console.error('[Claim/ZeroTouch] Claim processing failed:', err.message);
+            // Return success but indicate processing failed
+            return sendSuccess(res, {
+                message: "Claim processing failed. Manual review required.",
+                automated: false,
+                triggers: feed,
+                recommendedTrigger,
+                _meta: { error: 'claim_processing_failed' }
+            });
+        }
 
         return sendSuccess(res, {
             ...result,
@@ -366,8 +405,9 @@ router.post('/zero-touch-scan', async (req, res) => {
             triggers: feed
         });
     } catch (error) {
-        console.error("Zero-touch scan error:", error);
-        return sendError(res, 500, "Could not complete zero-touch scan");
+        console.error('[Claim/ZeroTouch] Unhandled error:', error.message, error.stack);
+        // Return 503 Service Unavailable instead of 500
+        return sendError(res, 503, "Zero-touch scan service temporarily unavailable. Please try again.");
     }
 });
 
@@ -383,19 +423,43 @@ router.get('/triggers/feed', async (req, res) => {
             return sendError(res, 404, "Worker not found");
         }
 
-        const policy = normalizePolicy(await Policy.findOne({ workerId, status: 'active' }).lean());
+        // Get policy with error handling
+        let policy = { shiftState: 'OFF' };
+        try {
+            const dbPolicy = await Policy.findOne({ workerId, status: 'active' }).lean();
+            policy = normalizePolicy(dbPolicy);
+        } catch (err) {
+            console.warn('[Claim/Triggers] Failed to fetch policy:', err.message);
+            // Continue with default policy - not critical
+        }
+
+        // Build trigger feed with error handling
+        let feed = [];
+        try {
+            const rawFeed = await buildTriggerFeed(user.zone);
+            feed = evaluateTriggerEligibility(rawFeed || [], policy, policy.shiftState || 'OFF');
+        } catch (err) {
+            console.error('[Claim/Triggers] Failed to build trigger feed:', err.message);
+            // Return empty triggers instead of 500 error
+            feed = [];
+        }
+
         const shiftState = policy.shiftState || 'OFF';
-        const feed = evaluateTriggerEligibility(await buildTriggerFeed(user.zone), policy, shiftState);
 
         return sendSuccess(res, {
             workerId,
             zone: user.zone,
             shiftState,
-            triggers: feed
+            triggers: feed,
+            _meta: {
+                dataSource: feed.length > 0 ? 'live' : 'degraded',
+                timestamp: new Date().toISOString()
+            }
         });
     } catch (error) {
-        console.error("Trigger feed error:", error);
-        return sendError(res, 500, "Could not load trigger feed");
+        console.error('[Claim/Triggers] Unhandled error in triggers/feed:', error.message, error.stack);
+        // Return graceful 503 with cached/empty data instead of 500
+        return sendError(res, 503, "Trigger service temporarily unavailable. Please try again.");
     }
 });
 

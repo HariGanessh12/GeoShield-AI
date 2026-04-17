@@ -52,37 +52,73 @@ router.post('/quote', createValidator([
         if (!user) return sendError(res, 404, "User not found");
 
         // Get claim history for credibility calculation
-        const claimHistory = await require('../models/claim').find(
-            { workerId: userId },
-            { status: 1, amount: 1, createdAt: 1 }
-        ).sort({ createdAt: -1 }).limit(20).lean();
+        let claimHistory = [];
+        try {
+            claimHistory = await require('../models/claim').find(
+                { workerId: userId },
+                { status: 1, amount: 1, createdAt: 1 }
+            ).sort({ createdAt: -1 }).limit(20).lean();
+        } catch (err) {
+            console.warn('[Policy/Quote] Failed to fetch claim history:', err.message);
+            // Continue without claim history - not a critical failure
+        }
 
-        // Get external data
-        const [heatwave, rain, outage, aqi, traffic] = await Promise.all([
-            getExternalData('HEATWAVE', user.zone),
-            getExternalData('HEAVY_RAIN', user.zone),
-            getExternalData('PLATFORM_OUTAGE', user.zone),
-            getExternalData('AQI_SEVERE', user.zone),
-            getExternalData('TRAFFIC_SURGE', user.zone)
-        ]);
+        // Get external data with comprehensive error handling
+        let externalDataResults = {};
+        try {
+            const [heatwave, rain, outage, aqi, traffic] = await Promise.all([
+                getExternalData('HEATWAVE', user.zone).catch(err => {
+                    console.warn('[Policy/Quote] HEATWAVE fetch failed:', err.message);
+                    return { severityScore: 0.4, eventType: 'HEATWAVE', source: 'error_fallback' };
+                }),
+                getExternalData('HEAVY_RAIN', user.zone).catch(err => {
+                    console.warn('[Policy/Quote] HEAVY_RAIN fetch failed:', err.message);
+                    return { severityScore: 0.4, eventType: 'HEAVY_RAIN', source: 'error_fallback' };
+                }),
+                getExternalData('PLATFORM_OUTAGE', user.zone).catch(err => {
+                    console.warn('[Policy/Quote] PLATFORM_OUTAGE fetch failed:', err.message);
+                    return { severityScore: 0.4, eventType: 'PLATFORM_OUTAGE', source: 'error_fallback' };
+                }),
+                getExternalData('AQI_SEVERE', user.zone).catch(err => {
+                    console.warn('[Policy/Quote] AQI_SEVERE fetch failed:', err.message);
+                    return { severityScore: 0.4, eventType: 'AQI_SEVERE', source: 'error_fallback' };
+                }),
+                getExternalData('TRAFFIC_SURGE', user.zone).catch(err => {
+                    console.warn('[Policy/Quote] TRAFFIC_SURGE fetch failed:', err.message);
+                    return { severityScore: 0.4, eventType: 'TRAFFIC_SURGE', source: 'error_fallback' };
+                })
+            ]);
+
+            externalDataResults = { heatwave, rain, outage, aqi, traffic };
+        } catch (err) {
+            console.error('[Policy/Quote] External data fetch failed:', err.message);
+            // Set safe defaults if all external data fails
+            externalDataResults = {
+                heatwave: { severityScore: 0.4 },
+                rain: { severityScore: 0.4 },
+                outage: { severityScore: 0.4 },
+                aqi: { severityScore: 0.4 },
+                traffic: { severityScore: 0.4 }
+            };
+        }
 
         // Calculate weighted severity for backward compatibility
         const weightedSeverity = (
-            heatwave.severityScore * 0.24 +
-            rain.severityScore * 0.22 +
-            outage.severityScore * 0.16 +
-            aqi.severityScore * 0.18 +
-            traffic.severityScore * 0.2
+            (externalDataResults.heatwave?.severityScore || 0.4) * 0.24 +
+            (externalDataResults.rain?.severityScore || 0.4) * 0.22 +
+            (externalDataResults.outage?.severityScore || 0.4) * 0.16 +
+            (externalDataResults.aqi?.severityScore || 0.4) * 0.18 +
+            (externalDataResults.traffic?.severityScore || 0.4) * 0.2
         );
 
         // Call advanced risk model (JavaScript implementation)
         const riskInput = {
             weather: weightedSeverity * 100,  // Convert to 0-100 scale
-            traffic: traffic.severityScore * 100,
-            location: (heatwave.severityScore + rain.severityScore + aqi.severityScore) / 3 * 100,
+            traffic: (externalDataResults.traffic?.severityScore || 0.4) * 100,
+            location: ((externalDataResults.heatwave?.severityScore || 0.4) + (externalDataResults.rain?.severityScore || 0.4) + (externalDataResults.aqi?.severityScore || 0.4)) / 3 * 100,
             persona_type: user.personaType || 'FOOD_DELIVERY',
             reputation_score: user.reputationScore || 85,
-            claim_history: claimHistory.map(c => ({ status: c.status, approved: c.status === 'APPROVED' })),
+            claim_history: (claimHistory || []).map(c => ({ status: c.status, approved: c.status === 'APPROVED' })),
             zone: user.zone
         };
 
