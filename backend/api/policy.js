@@ -7,6 +7,27 @@ const { createValidator, validators } = require('../utils/validation');
 const { getExternalData } = require('../services/externalDataService');
 const { calculatePremium } = require('../services/riskCalculator');
 
+// Event type constants - eliminates hardcoded strings
+const EVENTS = {
+    HEATWAVE: 'HEATWAVE',
+    HEAVY_RAIN: 'HEAVY_RAIN',
+    PLATFORM_OUTAGE: 'PLATFORM_OUTAGE',
+    AQI_SEVERE: 'AQI_SEVERE',
+    TRAFFIC_SURGE: 'TRAFFIC_SURGE'
+};
+
+// Event severity weights for premium calculation
+const EVENT_WEIGHTS = {
+    [EVENTS.HEATWAVE]: 0.24,
+    [EVENTS.HEAVY_RAIN]: 0.22,
+    [EVENTS.PLATFORM_OUTAGE]: 0.16,
+    [EVENTS.AQI_SEVERE]: 0.18,
+    [EVENTS.TRAFFIC_SURGE]: 0.2
+};
+
+// Location risk factors (weather events affecting location risk)
+const LOCATION_RISK_EVENTS = [EVENTS.HEATWAVE, EVENTS.HEAVY_RAIN, EVENTS.AQI_SEVERE];
+
 const COVERED_EVENTS = ['HEAVY_RAIN', 'HEATWAVE', 'PLATFORM_OUTAGE', 'AQI_SEVERE', 'TRAFFIC_SURGE'];
 
 function personaMultiplier(personaType) {
@@ -63,66 +84,88 @@ router.post('/quote', createValidator([
             // Continue without claim history - not a critical failure
         }
 
-        // Get external data with comprehensive error handling
-        let externalDataResults = {};
+        // Fetch all external event data in parallel
+        let eventData = {};
         try {
             const [heatwave, rain, outage, aqi, traffic] = await Promise.all([
-                getExternalData('HEATWAVE', user.zone).catch(err => {
-                    console.warn('[Policy/Quote] HEATWAVE fetch failed:', err.message);
-                    return { severityScore: 0.4, eventType: 'HEATWAVE', source: 'error_fallback' };
+                getExternalData(EVENTS.HEATWAVE, user.zone).catch(err => {
+                    console.warn(`[Policy/Quote] ${EVENTS.HEATWAVE} fetch failed:`, err.message);
+                    return { severityScore: 0.4, eventType: EVENTS.HEATWAVE, source: 'error_fallback' };
                 }),
-                getExternalData('HEAVY_RAIN', user.zone).catch(err => {
-                    console.warn('[Policy/Quote] HEAVY_RAIN fetch failed:', err.message);
-                    return { severityScore: 0.4, eventType: 'HEAVY_RAIN', source: 'error_fallback' };
+                getExternalData(EVENTS.HEAVY_RAIN, user.zone).catch(err => {
+                    console.warn(`[Policy/Quote] ${EVENTS.HEAVY_RAIN} fetch failed:`, err.message);
+                    return { severityScore: 0.4, eventType: EVENTS.HEAVY_RAIN, source: 'error_fallback' };
                 }),
-                getExternalData('PLATFORM_OUTAGE', user.zone).catch(err => {
-                    console.warn('[Policy/Quote] PLATFORM_OUTAGE fetch failed:', err.message);
-                    return { severityScore: 0.4, eventType: 'PLATFORM_OUTAGE', source: 'error_fallback' };
+                getExternalData(EVENTS.PLATFORM_OUTAGE, user.zone).catch(err => {
+                    console.warn(`[Policy/Quote] ${EVENTS.PLATFORM_OUTAGE} fetch failed:`, err.message);
+                    return { severityScore: 0.4, eventType: EVENTS.PLATFORM_OUTAGE, source: 'error_fallback' };
                 }),
-                getExternalData('AQI_SEVERE', user.zone).catch(err => {
-                    console.warn('[Policy/Quote] AQI_SEVERE fetch failed:', err.message);
-                    return { severityScore: 0.4, eventType: 'AQI_SEVERE', source: 'error_fallback' };
+                getExternalData(EVENTS.AQI_SEVERE, user.zone).catch(err => {
+                    console.warn(`[Policy/Quote] ${EVENTS.AQI_SEVERE} fetch failed:`, err.message);
+                    return { severityScore: 0.4, eventType: EVENTS.AQI_SEVERE, source: 'error_fallback' };
                 }),
-                getExternalData('TRAFFIC_SURGE', user.zone).catch(err => {
-                    console.warn('[Policy/Quote] TRAFFIC_SURGE fetch failed:', err.message);
-                    return { severityScore: 0.4, eventType: 'TRAFFIC_SURGE', source: 'error_fallback' };
+                getExternalData(EVENTS.TRAFFIC_SURGE, user.zone).catch(err => {
+                    console.warn(`[Policy/Quote] ${EVENTS.TRAFFIC_SURGE} fetch failed:`, err.message);
+                    return { severityScore: 0.4, eventType: EVENTS.TRAFFIC_SURGE, source: 'error_fallback' };
                 })
             ]);
 
-            externalDataResults = { heatwave, rain, outage, aqi, traffic };
+            // Store in object with proper keys
+            eventData = {
+                [EVENTS.HEATWAVE]: heatwave,
+                [EVENTS.HEAVY_RAIN]: rain,
+                [EVENTS.PLATFORM_OUTAGE]: outage,
+                [EVENTS.AQI_SEVERE]: aqi,
+                [EVENTS.TRAFFIC_SURGE]: traffic
+            };
         } catch (err) {
             console.error('[Policy/Quote] External data fetch failed:', err.message);
             // Set safe defaults if all external data fails
-            externalDataResults = {
-                heatwave: { severityScore: 0.4 },
-                rain: { severityScore: 0.4 },
-                outage: { severityScore: 0.4 },
-                aqi: { severityScore: 0.4 },
-                traffic: { severityScore: 0.4 }
+            eventData = {
+                [EVENTS.HEATWAVE]: { severityScore: 0.4 },
+                [EVENTS.HEAVY_RAIN]: { severityScore: 0.4 },
+                [EVENTS.PLATFORM_OUTAGE]: { severityScore: 0.4 },
+                [EVENTS.AQI_SEVERE]: { severityScore: 0.4 },
+                [EVENTS.TRAFFIC_SURGE]: { severityScore: 0.4 }
             };
         }
 
-        // Calculate weighted severity for backward compatibility
-        const weightedSeverity = (
-            (externalDataResults.heatwave?.severityScore || 0.4) * 0.24 +
-            (externalDataResults.rain?.severityScore || 0.4) * 0.22 +
-            (externalDataResults.outage?.severityScore || 0.4) * 0.16 +
-            (externalDataResults.aqi?.severityScore || 0.4) * 0.18 +
-            (externalDataResults.traffic?.severityScore || 0.4) * 0.2
-        );
+        // Calculate weighted severity using EVENT_WEIGHTS constant
+        const weightedSeverity = Object.entries(EVENT_WEIGHTS).reduce((sum, [eventType, weight]) => {
+            const score = eventData[eventType]?.severityScore || 0.4;
+            return sum + (score * weight);
+        }, 0);
 
-        // Call advanced risk model (JavaScript implementation)
+        // Calculate location risk from weather events
+        const locationRiskScore = LOCATION_RISK_EVENTS.reduce((sum, eventType) => {
+            return sum + (eventData[eventType]?.severityScore || 0.4);
+        }, 0) / LOCATION_RISK_EVENTS.length;
+
+        // Build risk model input
         const riskInput = {
-            weather: weightedSeverity * 100,  // Convert to 0-100 scale
-            traffic: (externalDataResults.traffic?.severityScore || 0.4) * 100,
-            location: ((externalDataResults.heatwave?.severityScore || 0.4) + (externalDataResults.rain?.severityScore || 0.4) + (externalDataResults.aqi?.severityScore || 0.4)) / 3 * 100,
+            weather: weightedSeverity * 100,
+            traffic: (eventData[EVENTS.TRAFFIC_SURGE]?.severityScore || 0.4) * 100,
+            location: locationRiskScore * 100,
             persona_type: user.personaType || 'FOOD_DELIVERY',
             reputation_score: user.reputationScore || 85,
             claim_history: (claimHistory || []).map(c => ({ status: c.status, approved: c.status === 'APPROVED' })),
             zone: user.zone
         };
 
-        const riskResult = calculatePremium(riskInput);
+        let riskResult;
+        try {
+            riskResult = calculatePremium(riskInput);
+        } catch (err) {
+            console.error('[Policy/Quote] Risk calculation failed:', err.message);
+            return sendError(res, 500, "Premium calculation failed. Please try again.");
+        }
+
+        // Build signals object safely from eventData
+        const signals = {};
+        Object.entries(EVENTS).forEach(([key, eventType]) => {
+            signals[key.toLowerCase()] = eventData[eventType]?.severityScore || 0.4;
+        });
+        signals.weightedSeverity = Number(weightedSeverity.toFixed(2));
 
         return sendSuccess(res, {
             quote: riskResult.weekly_premium_inr,
@@ -133,17 +176,16 @@ router.post('/quote', createValidator([
             loss_ratio_projection: riskResult.loss_ratio_projection,
             credibility: riskResult.credibility,
             coverageAmount: 3500,
-            signals: {
-                heatwave: heatwave.severityScore,
-                rain: rain.severityScore,
-                outage: outage.severityScore,
-                aqi: aqi.severityScore,
-                traffic: traffic.severityScore,
-                weightedSeverity: Number(weightedSeverity.toFixed(2))
+            signals,
+            _meta: {
+                zone: user.zone,
+                personaType: user.personaType,
+                reputationScore: user.reputationScore,
+                timestamp: new Date().toISOString()
             }
         });
     } catch (e) {
-        console.error("Pricing error:", e);
+        console.error('[Policy/Quote] Unhandled error:', e.message, e.stack);
         return sendError(res, 500, "Pricing engine failed");
     }
 });
