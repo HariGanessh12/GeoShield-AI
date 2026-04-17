@@ -91,7 +91,7 @@ export default function RiskPage() {
               weather: inputs.weather,
               traffic: inputs.traffic,
               location: inputs.location,
-              persona_type: "FOOD_DELIVERY",
+              persona_type: user?.personaType || "FOOD_DELIVERY",
             }),
           }),
         ]);

@@ -4,10 +4,41 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { clearSession } from "@/utils/auth";
+import { apiFetch } from "@/utils/api-client";
+import { formatCurrency } from "@/utils/format";
+
+type AdminDashboardResponse = {
+  financials: {
+    totalPremium: number;
+    totalClaims: number;
+    lossRatio: number;
+    status: string;
+  };
+  claims: {
+    total: number;
+    approved: number;
+    approvalRate: number;
+  };
+  demographics: Array<{ _id: string; userCount: number }>;
+};
+
+type ReviewClaim = {
+  _id: string;
+  trigger: string;
+  status: string;
+  claimAmount: number;
+  payout: number;
+  createdAt: string;
+  workerId: string;
+  resolutionNote?: string;
+};
 
 export default function AdminDashboard() {
   const router = useRouter();
   const [mounted, setMounted] = React.useState(false);
+  const [dashboard, setDashboard] = React.useState<AdminDashboardResponse | null>(null);
+  const [queue, setQueue] = React.useState<ReviewClaim[]>([]);
+  const [loading, setLoading] = React.useState(true);
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => setMounted(true));
@@ -19,8 +50,32 @@ export default function AdminDashboard() {
     const role = localStorage.getItem("role");
     if (role !== "admin") {
       router.replace("/");
+      return;
     }
+    void loadAdminData();
   }, [mounted, router]);
+
+  const loadAdminData = async () => {
+    setLoading(true);
+    try {
+      const [dashboardData, queueData] = await Promise.all([
+        apiFetch<AdminDashboardResponse>("/api/metrics/admin-dashboard"),
+        apiFetch<{ claims: ReviewClaim[] }>("/api/claim/admin/review-queue"),
+      ]);
+      setDashboard(dashboardData);
+      setQueue(queueData.claims || []);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const reviewClaim = async (claimId: string, status: "APPROVED" | "REJECTED") => {
+    await apiFetch(`/api/claim/admin/${claimId}/review`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    });
+    await loadAdminData();
+  };
 
   const handleLogout = () => {
       clearSession();
@@ -71,7 +126,7 @@ export default function AdminDashboard() {
               className="bg-white/[0.02] border border-white/5 rounded-3xl p-6 shadow-2xl hover:bg-white/[0.04] transition-colors light-mode:bg-white light-mode:border-black/5 light-mode:shadow-xl"
             >
                 <span className="text-gray-400 text-xs font-bold uppercase tracking-wider light-mode:text-slate-500">Total Claims Processed</span>
-                <span className="block text-4xl font-black mt-2 text-white light-mode:text-slate-900">4,291</span>
+                <span className="block text-4xl font-black mt-2 text-white light-mode:text-slate-900">{loading ? "..." : dashboard?.claims.total ?? 0}</span>
             </motion.div>
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }}
@@ -82,9 +137,9 @@ export default function AdminDashboard() {
                 <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/20 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
                 <span className="text-rose-400 text-xs font-bold uppercase tracking-wider flex items-center gap-2 relative z-10 light-mode:text-rose-600">
                     <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse shadow-[0_0_8px_rgba(251,113,133,0.8)] light-mode:shadow-none light-mode:bg-rose-500"></span>
-                    Active Fraud Alerts
+                    Claims Pending Review
                 </span>
-                <span className="block text-4xl font-black mt-2 text-white relative z-10 light-mode:text-rose-700">124</span>
+                <span className="block text-4xl font-black mt-2 text-white relative z-10 light-mode:text-rose-700">{loading ? "..." : queue.filter((claim) => claim.status === "VERIFY").length}</span>
             </motion.div>
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }}
@@ -92,9 +147,9 @@ export default function AdminDashboard() {
               transition={{ delay: 0.3 }}
               className="bg-white/[0.02] border border-white/5 rounded-3xl p-6 shadow-2xl hover:bg-white/[0.04] transition-colors light-mode:bg-white light-mode:border-black/5 light-mode:shadow-xl"
             >
-                <span className="text-gray-400 text-xs font-bold uppercase tracking-wider light-mode:text-slate-500">High Risk Zones</span>
-                <span className="block text-xl font-bold mt-2 text-amber-400 light-mode:text-amber-600">Delhi NCR (Heatwave)</span>
-                <span className="block text-sm font-semibold mt-1 text-white/50 light-mode:text-slate-400">Mumbai South (Rain)</span>
+                <span className="text-gray-400 text-xs font-bold uppercase tracking-wider light-mode:text-slate-500">Portfolio Status</span>
+                <span className="block text-xl font-bold mt-2 text-amber-400 light-mode:text-amber-600">{loading ? "Loading..." : dashboard?.financials.status ?? "N/A"}</span>
+                <span className="block text-sm font-semibold mt-1 text-white/50 light-mode:text-slate-400">Loss ratio {(dashboard?.financials.lossRatio ?? 0) * 100}%</span>
             </motion.div>
         </div>
 
@@ -103,33 +158,61 @@ export default function AdminDashboard() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
-              className="bg-white/[0.02] backdrop-blur-2xl border border-white/5 rounded-[2rem] p-8 shadow-2xl max-w-4xl hover:border-white/10 transition-colors light-mode:bg-white/80 light-mode:border-black/5 light-mode:shadow-xl"
+              className="bg-white/[0.02] backdrop-blur-2xl border border-white/5 rounded-[2rem] p-8 shadow-2xl hover:border-white/10 transition-colors light-mode:bg-white/80 light-mode:border-black/5 light-mode:shadow-xl"
             >
                 <h3 className="text-xl font-semibold mb-6 flex items-center gap-2 border-b border-white/5 pb-4 light-mode:border-black/5 light-mode:text-slate-900">
                     <svg className="w-5 h-5 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                    Network Fraud Rings Detected
+                    Live claims review queue
                 </h3>
-                <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-6 relative overflow-hidden group light-mode:bg-rose-50 light-mode:border-rose-200">
-                    <div className="flex justify-between items-start mb-4">
-                        <span className="text-sm font-bold text-rose-400 uppercase tracking-widest flex items-center gap-2 light-mode:text-rose-600">
-                            <span className="w-2 h-2 rounded-full bg-rose-500 animate-[ping_2s_infinite]"></span>
-                            Graph Clustering Attack
-                        </span>
-                        <span className="px-2 py-0.5 bg-rose-500/20 text-rose-300 text-[10px] font-black rounded border border-rose-500/30 uppercase light-mode:bg-rose-100 light-mode:text-rose-700">Blocked</span>
+                <div className="grid gap-4 md:grid-cols-3 mb-6">
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4 light-mode:border-black/10 light-mode:bg-white">
+                    <p className="text-xs uppercase tracking-[0.18em] text-white/45 light-mode:text-slate-500">Premium Collected</p>
+                    <p className="mt-2 text-2xl font-black text-white light-mode:text-slate-900">{formatCurrency(dashboard?.financials.totalPremium)}</p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4 light-mode:border-black/10 light-mode:bg-white">
+                    <p className="text-xs uppercase tracking-[0.18em] text-white/45 light-mode:text-slate-500">Claims Paid</p>
+                    <p className="mt-2 text-2xl font-black text-white light-mode:text-slate-900">{formatCurrency(dashboard?.financials.totalClaims)}</p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4 light-mode:border-black/10 light-mode:bg-white">
+                    <p className="text-xs uppercase tracking-[0.18em] text-white/45 light-mode:text-slate-500">Approval Rate</p>
+                    <p className="mt-2 text-2xl font-black text-white light-mode:text-slate-900">{dashboard?.claims.approvalRate?.toFixed(1) ?? "0.0"}%</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {queue.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-white/10 px-4 py-8 text-sm text-white/50 light-mode:border-black/10 light-mode:text-slate-500">
+                      No claims available for review.
                     </div>
-                    <p className="text-sm text-gray-300 leading-relaxed font-medium mb-6 relative z-10 light-mode:text-slate-600">
-                        <strong className="text-white light-mode:text-slate-900">14 users</strong> detected sharing identical device IDs across 3 states during a localized rain event. NetworkX identified strong component linkage indicating a coordinated network ring attack.
-                    </p>
-                    <div className="flex gap-4 relative z-10">
-                        <button className="flex-1 py-2.5 rounded-xl bg-rose-500/20 text-rose-400 font-bold text-sm border border-rose-500/50 cursor-default hover:bg-rose-500/30 transition-colors shadow-inner light-mode:bg-rose-500 light-mode:text-white light-mode:border-none light-mode:shadow-md">Nullified All (14)</button>
-                        <motion.button 
-                           whileHover={{ scale: 1.02 }}
-                           whileTap={{ scale: 0.98 }}
-                           className="flex-1 py-2.5 rounded-xl bg-white/5 text-white/50 font-bold text-sm border border-white/10 hover:bg-white/10 hover:text-white transition-colors light-mode:bg-slate-100 light-mode:text-slate-600 light-mode:border-black/5"
-                        >
-                           Inspect Nodes
-                        </motion.button>
-                    </div>
+                  ) : (
+                    queue.map((claim) => (
+                      <div key={claim._id} className="rounded-2xl border border-white/10 bg-black/20 p-5 light-mode:border-black/10 light-mode:bg-white">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <div className="text-sm font-bold text-white light-mode:text-slate-900">{claim.trigger}</div>
+                            <div className="text-xs text-white/50 light-mode:text-slate-500">
+                              Worker {claim.workerId} · {new Date(claim.createdAt).toLocaleString()}
+                            </div>
+                          </div>
+                          <span className="rounded-full border border-white/10 px-3 py-1 text-xs font-bold text-white/80 light-mode:border-black/10 light-mode:text-slate-700">
+                            {claim.status}
+                          </span>
+                        </div>
+                        <div className="mt-4 flex flex-wrap gap-5 text-sm text-white/70 light-mode:text-slate-600">
+                          <span>Claimed: {formatCurrency(claim.claimAmount)}</span>
+                          <span>Payout: {formatCurrency(claim.payout)}</span>
+                        </div>
+                        <div className="mt-4 flex gap-3">
+                          <button onClick={() => reviewClaim(claim._id, "APPROVED")} className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-bold text-slate-950 transition hover:bg-emerald-400">
+                            Approve
+                          </button>
+                          <button onClick={() => reviewClaim(claim._id, "REJECTED")} className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2 text-sm font-bold text-rose-200 transition hover:bg-rose-500/20 light-mode:text-rose-700">
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
             </motion.div>
         </div>

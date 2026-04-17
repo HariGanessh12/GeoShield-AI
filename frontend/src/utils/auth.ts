@@ -4,7 +4,7 @@ export type SessionUser = {
   id: string;
   email: string;
   role: UserRole;
-  persona?: string;
+  personaType?: string;
   zone?: string;
 };
 

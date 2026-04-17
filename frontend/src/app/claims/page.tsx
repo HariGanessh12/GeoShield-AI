@@ -26,10 +26,36 @@ type ClaimResponse = {
   };
 };
 
+type TriggerFeedResponse = {
+  shiftState?: "ON" | "OFF";
+  triggers: Array<{
+    type: string;
+    label: string;
+    severityScore: number;
+    coveredByPolicy: boolean;
+    canAutoClaim: boolean;
+    reason: string;
+    lossAmount: number;
+  }>;
+};
+
+type ZeroTouchResponse = ClaimResponse & {
+  automated?: boolean;
+  recommendedTrigger?: {
+    type: string;
+    label: string;
+    severityScore: number;
+    lossAmount: number;
+  };
+  triggers?: TriggerFeedResponse["triggers"];
+};
+
 const sampleTriggers = [
   { label: "Heatwave", description: "I was affected by extreme heat today", payload: { type: "HEATWAVE", lossAmount: 450 } },
   { label: "Heavy Rain", description: "Heavy rain disrupted my shift", payload: { type: "HEAVY_RAIN", lossAmount: 550 } },
   { label: "Platform Outage", description: "My platform went down mid-shift", payload: { type: "PLATFORM_OUTAGE", lossAmount: 400 } },
+  { label: "Severe AQI", description: "Air quality made the shift unsafe", payload: { type: "AQI_SEVERE", lossAmount: 500 } },
+  { label: "Traffic Surge", description: "Congestion sharply reduced my trips", payload: { type: "TRAFFIC_SURGE", lossAmount: 350 } },
 ];
 
 const containerVariants = {
@@ -58,13 +84,20 @@ export default function ClaimsPage() {
   const [submitting, setSubmitting] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [triggerFeed, setTriggerFeed] = useState<TriggerFeedResponse["triggers"]>([]);
+  const [zeroTouchLoading, setZeroTouchLoading] = useState(false);
+  const [zeroTouchResult, setZeroTouchResult] = useState<ZeroTouchResponse | null>(null);
 
   const loadClaims = async () => {
     setLoading(true);
     setError("");
     try {
-      const data = await apiFetch<Claim[]>("/api/claim/history");
-      setClaims(data);
+      const [claimsData, triggerData] = await Promise.all([
+        apiFetch<Claim[]>("/api/claim/history"),
+        apiFetch<TriggerFeedResponse>("/api/claim/triggers/feed"),
+      ]);
+      setClaims(claimsData);
+      setTriggerFeed(triggerData.triggers || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load claims");
     } finally {
@@ -94,11 +127,30 @@ export default function ClaimsPage() {
         body: JSON.stringify({ disruptionFactor }),
       });
       setMessage(result.message || `${label} claim processed`);
+      setZeroTouchResult(null);
       await loadClaims();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not trigger claim");
     } finally {
       setSubmitting(null);
+    }
+  };
+
+  const runZeroTouch = async () => {
+    setZeroTouchLoading(true);
+    setError("");
+    setMessage("");
+    try {
+      const result = await apiFetch<ZeroTouchResponse>("/api/claim/zero-touch-scan", {
+        method: "POST",
+      });
+      setZeroTouchResult(result);
+      setMessage(result.message || (result.automated ? "Zero-touch claim created" : "Zero-touch scan finished"));
+      await loadClaims();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not complete zero-touch scan");
+    } finally {
+      setZeroTouchLoading(false);
     }
   };
 
@@ -127,10 +179,57 @@ export default function ClaimsPage() {
       {message ? <motion.div variants={itemVariants} className="mt-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-4 text-sm text-emerald-200 light-mode:text-emerald-700">{message}</motion.div> : null}
       {error ? <motion.div variants={itemVariants} className="mt-6 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-5 py-4 text-sm text-rose-200 light-mode:text-rose-700">{error}</motion.div> : null}
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+      <div className="mt-8 grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
         <motion.section variants={itemVariants} className="rounded-4xl border border-white/10 bg-white/3 p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-xl">
-          <h2 className="text-2xl font-black text-white light-mode:text-slate-900">Report a disruption</h2>
-          <motion.div variants={containerVariants} className="mt-6 space-y-4">
+          <h2 className="text-2xl font-black text-white light-mode:text-slate-900">Zero-touch claim scan</h2>
+          <div className="mt-6 rounded-3xl border border-cyan-500/20 bg-cyan-500/10 p-5">
+            <p className="text-sm text-white/75 light-mode:text-slate-600">
+              Detect live trigger conditions from zone risk, policy coverage, and shift state. This flow minimizes manual input by automatically choosing the strongest eligible trigger.
+            </p>
+            <button
+              onClick={runZeroTouch}
+              disabled={zeroTouchLoading}
+              className="mt-4 w-full rounded-2xl bg-cyan-400 px-5 py-4 text-sm font-black text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {zeroTouchLoading ? "Scanning current conditions..." : "Run zero-touch scan"}
+            </button>
+            {zeroTouchResult?.recommendedTrigger ? (
+              <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm light-mode:border-black/10 light-mode:bg-white">
+                <div className="font-bold text-white light-mode:text-slate-900">{zeroTouchResult.recommendedTrigger.label}</div>
+                <div className="mt-1 text-white/60 light-mode:text-slate-500">
+                  Recommended payout: {formatCurrency(zeroTouchResult.recommendedTrigger.lossAmount)}
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          <h3 className="mt-8 text-lg font-black text-white light-mode:text-slate-900">Detected automated triggers</h3>
+          <div className="mt-4 space-y-3">
+            {triggerFeed.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-white/10 px-4 py-6 text-sm text-white/50 light-mode:border-black/10 light-mode:text-slate-500">
+                No trigger feed available right now.
+              </div>
+            ) : (
+              triggerFeed.map((trigger) => (
+                <div key={trigger.type} className="rounded-2xl border border-white/10 bg-black/20 px-4 py-4 text-sm light-mode:border-black/10 light-mode:bg-white">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-bold text-white light-mode:text-slate-900">{trigger.label}</span>
+                    <span className={`rounded-full px-3 py-1 text-xs font-bold ${trigger.canAutoClaim ? toneClass.success : trigger.coveredByPolicy ? toneClass.warning : toneClass.danger}`}>
+                      {trigger.canAutoClaim ? "AUTO-CLAIM READY" : trigger.coveredByPolicy ? "WATCHING" : "NOT COVERED"}
+                    </span>
+                  </div>
+                  <div className="mt-2 text-white/60 light-mode:text-slate-500">{trigger.reason}</div>
+                  <div className="mt-3 flex flex-wrap gap-4 text-xs text-white/65 light-mode:text-slate-500">
+                    <span>Severity: {(trigger.severityScore * 100).toFixed(0)}%</span>
+                    <span>Projected loss: {formatCurrency(trigger.lossAmount)}</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <h3 className="mt-8 text-lg font-black text-white light-mode:text-slate-900">Manual fallback triggers</h3>
+          <motion.div variants={containerVariants} className="mt-4 space-y-4">
             {sampleTriggers.map((item) => (
               <motion.button
                 key={item.label}

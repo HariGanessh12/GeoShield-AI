@@ -66,9 +66,58 @@ function createValidator(rules) {
 }
 
 const validators = {
+    email: (label) => {
+        const message = `${label} must be a valid email address`;
+        if (!z) {
+            return (value) => {
+                if (!isNonEmptyString(value)) return `${label} is required`;
+                return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value).trim()) ? null : message;
+            };
+        }
+        return z.string().trim().email(message);
+    },
+    password: (label, min = 8) => {
+        if (!z) {
+            return (value) => {
+                if (!isNonEmptyString(value)) return `${label} is required`;
+                return String(value).trim().length >= min ? null : `${label} must be at least ${min} characters`;
+            };
+        }
+        return z.string().trim().min(min, `${label} must be at least ${min} characters`);
+    },
     nonEmptyString: (label) => {
         if (!z) return (value) => (isNonEmptyString(value) ? null : `${label} is required`);
         return z.string().trim().min(1, `${label} is required`);
+    },
+    enumValue: (label, values, { optional = false } = {}) => {
+        if (!z) {
+            return (value) => {
+                if (value === undefined || value === null || value === '') {
+                    return optional ? null : `${label} is required`;
+                }
+                return values.includes(String(value)) ? null : `${label} must be one of: ${values.join(', ')}`;
+            };
+        }
+
+        const schema = z.enum(values);
+        return optional ? schema.optional() : schema;
+    },
+    stringArrayEnum: (label, values, { min = 1, optional = false } = {}) => {
+        if (!z) {
+            return (value) => {
+                if ((value === undefined || value === null) && optional) return null;
+                if (!Array.isArray(value)) return `${label} must be an array`;
+                if (value.length < min) return `${label} must include at least ${min} item(s)`;
+                const invalid = value.find((item) => !values.includes(String(item)));
+                return invalid ? `${label} contains an unsupported value` : null;
+            };
+        }
+
+        let schema = z.array(z.enum(values));
+        if (min > 0) {
+            schema = schema.min(min, `${label} must include at least ${min} item(s)`);
+        }
+        return optional ? schema.optional() : schema;
     },
     objectId: (label) => {
         if (!z) return (value) => (isObjectId(value) ? null : `${label} must be a valid MongoDB ObjectId`);

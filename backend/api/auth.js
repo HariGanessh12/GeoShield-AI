@@ -7,13 +7,36 @@ const { sendSuccess, sendError } = require('../utils/http');
 const { createValidator, validators } = require('../utils/validation');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'geoshield_super_secret_key_2026';
+const PERSONA_TYPES = ['FOOD_DELIVERY', 'GROCERY_DELIVERY', 'BIKE_TAXI'];
+const ZONES = ['Delhi NCR', 'Mumbai South', 'Bangalore Central', 'N/A'];
+
+function normalizePersonaType(value) {
+    const raw = String(value || '').trim().toUpperCase().replace(/[\s-]+/g, '_');
+    if (PERSONA_TYPES.includes(raw)) return raw;
+
+    const aliasMap = {
+        FOOD_DELIVERY: 'FOOD_DELIVERY',
+        GROCERY_Q_COMMERCE: 'GROCERY_DELIVERY',
+        GROCERY_DELIVERY: 'GROCERY_DELIVERY',
+        E_COMMERCE: 'BIKE_TAXI',
+        BIKE_TAXI: 'BIKE_TAXI'
+    };
+
+    return aliasMap[raw] || 'FOOD_DELIVERY';
+}
 
 // Seed default admin
 const seedAdmin = async () => {
     try {
         const adminExists = await User.findOne({ email: 'admin@gmail.com' });
         if (!adminExists) {
-            await User.create({ email: 'admin@gmail.com', password: 'password', role: 'admin' });
+            await User.create({
+                email: 'admin@gmail.com',
+                password: 'password',
+                role: 'admin',
+                personaType: 'FOOD_DELIVERY',
+                zone: 'Delhi NCR'
+            });
             console.log("Default admin created: admin@gmail.com");
         }
     } catch (e) {
@@ -24,25 +47,28 @@ const seedAdmin = async () => {
 setTimeout(seedAdmin, 3000);
 
 router.post('/register', createValidator([
-    { source: 'body', field: 'email', check: validators.nonEmptyString('email') },
-    { source: 'body', field: 'password', check: validators.nonEmptyString('password') }
+    { source: 'body', field: 'email', check: validators.email('email') },
+    { source: 'body', field: 'password', check: validators.password('password', 8) },
+    { source: 'body', field: 'zone', check: validators.enumValue('zone', ZONES, { optional: true }) }
 ]), async (req, res) => {
-    const { email, password, persona, zone } = req.body;
+    const { email, password, persona, personaType, zone } = req.body;
     try {
         const existing = await User.findOne({ email });
         if (existing) return sendError(res, 400, "Email already exists");
-        
+
+        const normalizedPersonaType = normalizePersonaType(personaType || persona);
+
         const user = await User.create({ 
             email, 
             password, 
             role: 'worker', 
-            persona: persona || 'Food Delivery', 
+            personaType: normalizedPersonaType,
             zone: zone || 'Delhi NCR', 
             reputationScore: 85 
         });
         return sendSuccess(res, {
             message: "Registered successfully",
-            user: { email: user.email, role: user.role, persona: user.persona, zone: user.zone }
+            user: { email: user.email, role: user.role, personaType: user.personaType, zone: user.zone }
         });
     } catch (e) {
         return sendError(res, 500, "Registration failed");
@@ -50,7 +76,7 @@ router.post('/register', createValidator([
 });
 
 router.post('/login', createValidator([
-    { source: 'body', field: 'email', check: validators.nonEmptyString('email') },
+    { source: 'body', field: 'email', check: validators.email('email') },
     { source: 'body', field: 'password', check: validators.nonEmptyString('password') }
 ]), async (req, res) => {
     try {
@@ -65,7 +91,7 @@ router.post('/login', createValidator([
             id: user._id,
             email: user.email,
             role: user.role,
-            persona: user.persona,
+            personaType: user.personaType,
             zone: user.zone
         };
 

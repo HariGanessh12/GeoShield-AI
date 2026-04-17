@@ -112,7 +112,7 @@ export default function DashboardPage() {
             weather: inputs.weather,
             traffic: inputs.traffic,
             location: inputs.location,
-            persona_type: "FOOD_DELIVERY"
+            persona_type: user.personaType || "FOOD_DELIVERY"
           })
         }),
       ]);
@@ -159,7 +159,7 @@ export default function DashboardPage() {
   // Determine contextual banner content
   const contextualBanner = (() => {
     // Priority 1: Weekly policy inactive
-    if (!policy || policy.status !== "ACTIVE") {
+    if (!policy || policy.status?.toUpperCase() !== "ACTIVE") {
       return (
         <motion.div
           variants={itemVariants}

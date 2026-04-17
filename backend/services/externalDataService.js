@@ -5,7 +5,8 @@ async function getExternalData(eventType, geoZone) {
         'HEAVY_RAIN': { severityScore: 0.85, baseProbability: 0.15 },
         'HEATWAVE': { severityScore: 0.92, baseProbability: 0.20 },
         'PLATFORM_OUTAGE': { severityScore: 0.88, baseProbability: 0.05 },
-        'AQI_SEVERE': { severityScore: 0.95, baseProbability: 0.30 }
+        'AQI_SEVERE': { severityScore: 0.95, baseProbability: 0.30 },
+        'TRAFFIC_SURGE': { severityScore: 0.7, baseProbability: 0.18 }
     };
 
     const data = mockResponses[eventType] || { severityScore: 0.5, baseProbability: 0.1 };
@@ -15,6 +16,7 @@ async function getExternalData(eventType, geoZone) {
     if (geoZone === 'Delhi NCR' && eventType === 'HEATWAVE') zoneVariance = 0.05;
     if (geoZone === 'Delhi NCR' && eventType === 'AQI_SEVERE') zoneVariance = 0.08;
     if (geoZone === 'Mumbai South' && eventType === 'HEAVY_RAIN') zoneVariance = 0.06;
+    if (geoZone === 'Bangalore Central' && eventType === 'TRAFFIC_SURGE') zoneVariance = 0.04;
 
     return {
         eventType,

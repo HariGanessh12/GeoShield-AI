@@ -10,7 +10,7 @@ export default function RegisterPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [persona, setPersona] = useState("Food Delivery");
+  const [personaType, setPersonaType] = useState("FOOD_DELIVERY");
   const [zone, setZone] = useState("Delhi NCR");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -23,9 +23,9 @@ export default function RegisterPage() {
       await apiFetch("/api/auth/register", {
         method: "POST",
         authenticated: false,
-        body: JSON.stringify({ email, password, persona, zone }),
+        body: JSON.stringify({ email, password, personaType, zone }),
       });
-      router.push("/");
+      router.push("/login");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");
     } finally {
@@ -45,11 +45,11 @@ export default function RegisterPage() {
         </div>
         <form onSubmit={handleRegister} className="space-y-5">
           <input required type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full rounded-2xl border border-white/10 bg-black/30 px-5 py-3.5 text-white outline-none light-mode:border-black/10 light-mode:bg-white light-mode:text-slate-900" />
-          <input required type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded-2xl border border-white/10 bg-black/30 px-5 py-3.5 text-white outline-none light-mode:border-black/10 light-mode:bg-white light-mode:text-slate-900" />
-          <select value={persona} onChange={(e) => setPersona(e.target.value)} className="w-full rounded-2xl border border-white/10 bg-black/30 px-5 py-3.5 text-white outline-none light-mode:border-black/10 light-mode:bg-white light-mode:text-slate-900">
-            <option value="Food Delivery">Food Delivery</option>
-            <option value="Grocery Q-Commerce">Grocery Q-Commerce</option>
-            <option value="E-commerce">E-commerce</option>
+          <input required minLength={8} type="password" placeholder="Password (min 8 characters)" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded-2xl border border-white/10 bg-black/30 px-5 py-3.5 text-white outline-none light-mode:border-black/10 light-mode:bg-white light-mode:text-slate-900" />
+          <select value={personaType} onChange={(e) => setPersonaType(e.target.value)} className="w-full rounded-2xl border border-white/10 bg-black/30 px-5 py-3.5 text-white outline-none light-mode:border-black/10 light-mode:bg-white light-mode:text-slate-900">
+            <option value="FOOD_DELIVERY">Food Delivery</option>
+            <option value="GROCERY_DELIVERY">Grocery Delivery</option>
+            <option value="BIKE_TAXI">Bike Taxi</option>
           </select>
           <select value={zone} onChange={(e) => setZone(e.target.value)} className="w-full rounded-2xl border border-white/10 bg-black/30 px-5 py-3.5 text-white outline-none light-mode:border-black/10 light-mode:bg-white light-mode:text-slate-900">
             <option value="Delhi NCR">Delhi NCR</option>

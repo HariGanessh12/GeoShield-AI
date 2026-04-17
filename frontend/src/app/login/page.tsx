@@ -19,7 +19,7 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     try {
-      const data = await apiFetch<{ token: string; user: { id: string; email: string; role: "worker" | "admin"; persona?: string; zone?: string } }>("/api/auth/login", {
+      const data = await apiFetch<{ token: string; user: { id: string; email: string; role: "worker" | "admin"; personaType?: string; zone?: string } }>("/api/auth/login", {
         method: "POST",
         authenticated: false,
         body: JSON.stringify({ email, password }),

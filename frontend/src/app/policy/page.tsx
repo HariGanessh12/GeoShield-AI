@@ -8,11 +8,14 @@ import { getSessionUser } from "@/utils/auth";
 import { formatCurrency, formatDate, statusTone } from "@/utils/format";
 
 type Policy = {
+  _id?: string;
   status: string;
   coverageAmount: number;
   premiumPaid: number;
   startDate: string;
   endDate: string;
+  coveredEvents?: string[];
+  maxPayoutPerEvent?: number;
 };
 
 type QuoteResponse = {
@@ -20,12 +23,15 @@ type QuoteResponse = {
   breakdown: {
     base: number;
     zoneSurcharge: number;
+    personaAdjustment?: number;
     reputationDiscount: number;
+    weightedSeverity?: number;
   };
   coverageAmount: number;
 };
 
 type PolicyResponse = { policy: Policy | null };
+type PolicyHistoryResponse = { policies: Policy[] };
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -52,6 +58,12 @@ export default function PolicyPage() {
   const [loading, setLoading] = useState(true);
   const [activating, setActivating] = useState(false);
   const [error, setError] = useState("");
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [policyHistory, setPolicyHistory] = useState<Policy[]>([]);
+  const [coverageAmount, setCoverageAmount] = useState(3500);
+  const [maxPayoutPerEvent, setMaxPayoutPerEvent] = useState(1000);
+  const [coveredEvents, setCoveredEvents] = useState<string[]>(["HEAVY_RAIN", "HEATWAVE", "PLATFORM_OUTAGE"]);
+  const supportedEvents = ["HEAVY_RAIN", "HEATWAVE", "PLATFORM_OUTAGE", "AQI_SEVERE", "TRAFFIC_SURGE"];
 
   useEffect(() => {
     const user = getSessionUser();
@@ -61,8 +73,9 @@ export default function PolicyPage() {
       setLoading(true);
       setError("");
       try {
-        const [policyData, quoteData] = await Promise.all([
+        const [policyData, historyData, quoteData] = await Promise.all([
           apiFetch<PolicyResponse>("/api/policy/current"),
+          apiFetch<PolicyHistoryResponse>("/api/policy/history"),
           apiFetch<QuoteResponse>("/api/policy/quote", {
             method: "POST",
             body: JSON.stringify({ userId: user.id }),
@@ -70,7 +83,13 @@ export default function PolicyPage() {
         ]);
 
         setPolicy(policyData.policy);
+        setPolicyHistory(policyData.policy ? [policyData.policy, ...historyData.policies.filter((item) => item._id !== policyData.policy?._id)] : historyData.policies);
         setQuote(quoteData);
+        if (policyData.policy) {
+          setCoverageAmount(policyData.policy.coverageAmount || 3500);
+          setMaxPayoutPerEvent(policyData.policy.maxPayoutPerEvent || 1000);
+          setCoveredEvents(policyData.policy.coveredEvents || ["HEAVY_RAIN", "HEATWAVE", "PLATFORM_OUTAGE"]);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not load policy details");
       } finally {
@@ -98,10 +117,46 @@ export default function PolicyPage() {
       });
 
       setPolicy(response.policy);
+      setCoverageAmount(response.policy.coverageAmount || 3500);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not activate policy");
     } finally {
       setActivating(false);
+    }
+  };
+
+  const savePolicySettings = async () => {
+    setSavingSettings(true);
+    setError("");
+    try {
+      const response = await apiFetch<{ policy: Policy }>("/api/policy/current", {
+        method: "PUT",
+        body: JSON.stringify({
+          coverageAmount,
+          maxPayoutPerEvent,
+          coveredEvents,
+        }),
+      });
+      setPolicy(response.policy);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not update policy settings");
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  const cancelPolicy = async () => {
+    setSavingSettings(true);
+    setError("");
+    try {
+      const response = await apiFetch<{ policy: Policy }>("/api/policy/cancel", {
+        method: "POST",
+      });
+      setPolicy(response.policy);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not cancel policy");
+    } finally {
+      setSavingSettings(false);
     }
   };
 
@@ -185,10 +240,22 @@ export default function PolicyPage() {
                   <span>Zone surcharge</span>
                   <span className="font-bold">+{formatCurrency(quote.breakdown.zoneSurcharge)}</span>
                 </motion.div>
+                {quote.breakdown.personaAdjustment ? (
+                  <motion.div variants={itemVariants} className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3 light-mode:border-black/10 transition-colors hover:bg-white/5 light-mode:hover:bg-black/5">
+                    <span>Persona adjustment</span>
+                    <span className="font-bold">+{formatCurrency(quote.breakdown.personaAdjustment)}</span>
+                  </motion.div>
+                ) : null}
                 <motion.div variants={itemVariants} className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3 light-mode:border-black/10 transition-colors hover:bg-white/5 light-mode:hover:bg-black/5">
                   <span>Reputation discount</span>
                   <span className="font-bold">-{formatCurrency(quote.breakdown.reputationDiscount)}</span>
                 </motion.div>
+                {quote.breakdown.weightedSeverity ? (
+                  <motion.div variants={itemVariants} className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3 light-mode:border-black/10 transition-colors hover:bg-white/5 light-mode:hover:bg-black/5">
+                    <span>Weighted trigger severity</span>
+                    <span className="font-bold">{Math.round(quote.breakdown.weightedSeverity * 100)}%</span>
+                  </motion.div>
+                ) : null}
               </div>
               <motion.button
                 variants={itemVariants}
@@ -208,6 +275,72 @@ export default function PolicyPage() {
           )}
         </motion.section>
       </div>
+
+      {policy ? (
+        <motion.section variants={itemVariants} className="mt-8 grid gap-6 lg:grid-cols-[1fr_0.9fr]">
+          <div className="rounded-4xl border border-white/10 bg-white/3 p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-xl">
+            <h2 className="text-2xl font-black text-white light-mode:text-slate-900">Manage active policy</h2>
+            <div className="mt-6 space-y-4">
+              <div>
+                <label className="text-sm font-semibold text-white/70 light-mode:text-slate-600">Coverage amount</label>
+                <input type="number" min={500} max={10000} value={coverageAmount} onChange={(e) => setCoverageAmount(Number(e.target.value))} className="mt-2 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-white light-mode:border-black/10 light-mode:bg-white light-mode:text-slate-900" />
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-white/70 light-mode:text-slate-600">Max payout per event</label>
+                <input type="number" min={250} max={5000} value={maxPayoutPerEvent} onChange={(e) => setMaxPayoutPerEvent(Number(e.target.value))} className="mt-2 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-white light-mode:border-black/10 light-mode:bg-white light-mode:text-slate-900" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-white/70 light-mode:text-slate-600">Covered events</p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {supportedEvents.map((event) => (
+                    <label key={event} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white light-mode:border-black/10 light-mode:bg-white light-mode:text-slate-900">
+                      <input
+                        type="checkbox"
+                        checked={coveredEvents.includes(event)}
+                        onChange={(e) => {
+                          setCoveredEvents((current) => e.target.checked ? [...current, event] : current.filter((item) => item !== event));
+                        }}
+                      />
+                      <span>{event}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <button onClick={savePolicySettings} disabled={savingSettings} className="rounded-2xl bg-white px-5 py-3 text-sm font-black text-slate-900 transition hover:scale-[1.01] disabled:opacity-60">
+                  {savingSettings ? "Saving..." : "Save policy settings"}
+                </button>
+                <button onClick={cancelPolicy} disabled={savingSettings} className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-5 py-3 text-sm font-black text-rose-200 transition hover:bg-rose-500/20 disabled:opacity-60 light-mode:text-rose-700">
+                  Cancel policy
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-4xl border border-white/10 bg-white/3 p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-xl">
+            <h2 className="text-2xl font-black text-white light-mode:text-slate-900">Policy history</h2>
+            <div className="mt-6 space-y-3">
+              {policyHistory.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-white/10 px-4 py-10 text-sm text-white/50 light-mode:border-black/10 light-mode:text-slate-500">
+                  No policy history available yet.
+                </div>
+              ) : (
+                policyHistory.map((item) => (
+                  <div key={`${item._id || item.startDate}-${item.endDate}`} className="rounded-2xl border border-white/10 bg-black/20 px-4 py-4 light-mode:border-black/10 light-mode:bg-white">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className={`rounded-full px-3 py-1 text-xs font-bold ${toneClass[statusTone(item.status)]}`}>{item.status.toUpperCase()}</span>
+                      <span className="text-xs text-white/50 light-mode:text-slate-500">{formatDate(item.startDate)} - {formatDate(item.endDate)}</span>
+                    </div>
+                    <div className="mt-3 text-sm text-white/70 light-mode:text-slate-600">
+                      {formatCurrency(item.coverageAmount)} coverage · {formatCurrency(item.premiumPaid)} premium
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </motion.section>
+      ) : null}
     </motion.main>
   );
 }

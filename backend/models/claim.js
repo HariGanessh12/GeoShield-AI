@@ -9,6 +9,11 @@ const ClaimSchema = new mongoose.Schema({
     payout: { type: Number },
     reputationScore: { type: Number },
     reasons: { type: [String] },
+    source: { type: String, default: 'manual_trigger' },
+    reviewedBy: { type: String, default: null },
+    reviewedAt: { type: Date, default: null },
+    resolutionNote: { type: String, default: '' },
+    triggerSnapshot: { type: Object, default: null },
     createdAt: { type: Date, default: Date.now }
 });
 
