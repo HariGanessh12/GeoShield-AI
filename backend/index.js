@@ -14,10 +14,6 @@ const { logInfo, logError } = require('./utils/logger');
 
 const app = express();
 
-mongoose.connect(config.mongoUri)
-    .then(() => logInfo('mongo.connected', { env: config.env }))
-    .catch((error) => logError('mongo.connection_error', error));
-
 app.use(express.json());
 app.use(cors({
     origin(origin, callback) {
@@ -61,7 +57,6 @@ const apiLimiter = rateLimit({
 app.use('/api', apiLimiter);
 
 app.get('/', (req, res) => sendSuccess(res, { status: 'GeoShield-AI API operational' }));
-app.get('/health', (req, res) => sendSuccess(res, { status: 'healthy' }));
 app.get('/version', (req, res) => sendSuccess(res, {
     service: 'backend',
     name: pkg.name,
@@ -96,6 +91,52 @@ app.use((error, req, res, next) => {
     return sendError(res, 500, 'Unhandled server error');
 });
 
-app.listen(config.port, () => {
-    logInfo('http.server_started', { port: config.port, env: config.env, runJobs: config.runJobs });
+function databaseStatus() {
+    const states = {
+        0: 'disconnected',
+        1: 'connected',
+        2: 'connecting',
+        3: 'disconnecting'
+    };
+
+    return {
+        readyState: mongoose.connection.readyState,
+        state: states[mongoose.connection.readyState] || 'unknown'
+    };
+}
+
+app.get('/health', (req, res) => {
+    const db = databaseStatus();
+    const healthy = db.state === 'connected';
+    return res.status(healthy ? 200 : 503).json({
+        success: healthy,
+        data: {
+            status: healthy ? 'healthy' : 'degraded',
+            database: db
+        },
+        error: healthy ? null : { message: 'Database unavailable', details: db },
+        timestamp: new Date().toISOString()
+    });
 });
+
+async function startServer() {
+    try {
+        await mongoose.connect(config.mongoUri, {
+            serverSelectionTimeoutMS: 10000
+        });
+        logInfo('mongo.connected', { env: config.env });
+
+        app.listen(config.port, () => {
+            logInfo('http.server_started', { port: config.port, env: config.env, runJobs: config.runJobs });
+        });
+    } catch (error) {
+        logError('mongo.connection_error', error, { env: config.env });
+        process.exit(1);
+    }
+}
+
+if (require.main === module) {
+    startServer();
+}
+
+module.exports = { app, startServer, databaseStatus };

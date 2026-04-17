@@ -10,6 +10,15 @@ const { logInfo, logWarn, logError } = require('../utils/logger');
 const PERSONA_TYPES = ['FOOD_DELIVERY', 'GROCERY_DELIVERY', 'BIKE_TAXI'];
 const ZONES = ['Delhi NCR', 'Mumbai South', 'Bangalore Central', 'N/A'];
 
+function isDatabaseUnavailable(error) {
+    const message = String(error?.message || '').toLowerCase();
+    return message.includes('buffering timed out')
+        || message.includes('server selection timed out')
+        || message.includes('topology is closed')
+        || message.includes('connection')
+        || message.includes('not connected');
+}
+
 function normalizePersonaType(value) {
     const raw = String(value || '').trim().toUpperCase().replace(/[\s-]+/g, '_');
     if (PERSONA_TYPES.includes(raw)) return raw;
@@ -90,7 +99,10 @@ router.post('/login', createValidator([
         return sendSuccess(res, { user: payload, session: { transport: 'httpOnlyCookie' } });
     } catch (error) {
         logError('auth.login_error', error, { email: req.body?.email });
-        return sendError(res, 500, "Internal Server Error or DB Timeout.");
+        if (isDatabaseUnavailable(error)) {
+            return sendError(res, 503, "Database unavailable. Please try again shortly.");
+        }
+        return sendError(res, 500, "Internal Server Error.");
     }
 });
 
