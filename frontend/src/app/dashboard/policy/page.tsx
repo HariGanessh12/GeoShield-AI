@@ -82,12 +82,12 @@ export default function PolicyDashboard() {
 
       <nav className="relative z-10 flex items-center justify-between px-8 py-6 border-b border-white/5 backdrop-blur-xl bg-[#0d0f17]/50">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-500/30">
+          <div className="w-10 h-10 rounded-xl bg-linear-to-tr from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-500/30">
             <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">Policy Hub</h1>
+          <h1 className="text-xl font-bold bg-clip-text text-transparent bg-linear-to-r from-white to-white/60">Policy Hub</h1>
         </div>
         <div className="flex items-center gap-6">
           <a href="/dashboard" className="text-xs font-bold text-gray-400 hover:text-white transition-colors border border-white/10 rounded-lg px-3 py-1.5 flex items-center gap-2">⬅ Back to Dashboard</a>
@@ -98,7 +98,7 @@ export default function PolicyDashboard() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="relative z-10 max-w-[800px] mx-auto px-6 py-12"
+        className="relative z-10 max-w-200 mx-auto px-6 py-12"
       >
         {!quote ? (
             <div className="text-center text-gray-400 flex flex-col items-center justify-center mt-20">
@@ -106,7 +106,7 @@ export default function PolicyDashboard() {
               Calculating AI Risk Factors...
             </div>
         ) : (
-            <div className="bg-white/[0.02] backdrop-blur-2xl border border-white/5 rounded-[2rem] p-8 shadow-2xl">
+            <div className="bg-white/2 backdrop-blur-2xl border border-white/5 rounded-4xl p-8 shadow-2xl">
               <h2 className="text-3xl font-bold mb-2">Weekly Income Protection</h2>
               <p className="text-gray-400 mb-8 border-b border-white/10 pb-6 text-sm">Your dynamic weekly premium has been calculated using predictive hyper-local risk assessment for <strong className="text-emerald-300 drop-shadow-md">your registered delivery zone</strong>.</p>
               
@@ -132,7 +132,7 @@ export default function PolicyDashboard() {
                     </div>
                   </div>
                   
-                  <div className="flex flex-col items-center justify-center p-6 bg-gradient-to-br from-[#0d0f17] to-black/60 rounded-3xl border border-emerald-500/20 shadow-inner text-center">
+                  <div className="flex flex-col items-center justify-center p-6 bg-linear-to-br from-[#0d0f17] to-black/60 rounded-3xl border border-emerald-500/20 shadow-inner text-center">
                       <span className="text-xs text-gray-500 font-bold tracking-widest uppercase mb-2">Your Weekly Premium</span>
                       <span className="text-6xl font-black text-white mb-4 drop-shadow-xl">₹{quote.breakdown.final_premium}</span>
                       <span className="text-[10px] uppercase tracking-wider text-emerald-400 font-bold px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full">Protects up to ₹{quote.coverageAmount}</span>
