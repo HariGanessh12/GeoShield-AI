@@ -20,6 +20,7 @@ type AdminDashboardResponse = {
     approvalRate: number;
   };
   demographics: Array<{ _id: string; userCount: number }>;
+  predictiveAnalytics: Array<{ id: string; risk: string; description: string; expectedImpact: number }>;
 };
 
 type ReviewClaim = {
@@ -153,12 +154,12 @@ export default function AdminDashboard() {
             </motion.div>
         </div>
 
-        <div className="grid grid-cols-1 gap-8">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
-              className="bg-white/[0.02] backdrop-blur-2xl border border-white/5 rounded-[2rem] p-8 shadow-2xl hover:border-white/10 transition-colors light-mode:bg-white/80 light-mode:border-black/5 light-mode:shadow-xl"
+              className="bg-white/[0.02] backdrop-blur-2xl border border-white/5 rounded-[2rem] p-8 shadow-2xl hover:border-white/10 transition-colors light-mode:bg-white/80 light-mode:border-black/5 light-mode:shadow-xl xl:col-span-2"
             >
                 <h3 className="text-xl font-semibold mb-6 flex items-center gap-2 border-b border-white/5 pb-4 light-mode:border-black/5 light-mode:text-slate-900">
                     <svg className="w-5 h-5 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
@@ -210,6 +211,40 @@ export default function AdminDashboard() {
                             Reject
                           </button>
                         </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+            </motion.div>
+
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              className="bg-white/[0.02] backdrop-blur-2xl border border-white/5 rounded-[2rem] p-8 shadow-2xl hover:border-white/10 transition-colors light-mode:bg-white/80 light-mode:border-black/5 light-mode:shadow-xl xl:col-span-1"
+            >
+                <h3 className="text-xl font-semibold mb-6 flex items-center gap-2 border-b border-white/5 pb-4 light-mode:border-black/5 light-mode:text-slate-900">
+                    <svg className="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                    Predictive Insights
+                </h3>
+                
+                <div className="space-y-4">
+                  {!dashboard?.predictiveAnalytics ? (
+                    <div className="rounded-2xl border border-dashed border-white/10 px-4 py-8 text-sm text-white/50 light-mode:border-black/10 light-mode:text-slate-500">
+                      Loading insights...
+                    </div>
+                  ) : (
+                    dashboard.predictiveAnalytics.map((insight) => (
+                      <div key={insight.id} className={`rounded-2xl border ${insight.risk === 'HIGH' ? 'border-rose-500/30' : insight.risk === 'MEDIUM' ? 'border-amber-500/30' : 'border-emerald-500/30'} bg-black/20 p-5 light-mode:bg-white`}>
+                        <div className="flex items-center justify-between gap-3 mb-2">
+                           <span className={`px-2 py-1 text-[10px] font-bold uppercase tracking-widest rounded-full ${insight.risk === 'HIGH' ? 'bg-rose-500/20 text-rose-300 light-mode:text-rose-700' : 'bg-amber-500/20 text-amber-300 light-mode:text-amber-700'}`}>
+                             {insight.risk} RISK
+                           </span>
+                           <span className="text-xs font-bold text-white/50 light-mode:text-slate-500">Impact: {formatCurrency(insight.expectedImpact)}</span>
+                        </div>
+                        <p className="text-sm text-white/80 light-mode:text-slate-700 leading-relaxed">
+                          {insight.description}
+                        </p>
                       </div>
                     ))
                   )}

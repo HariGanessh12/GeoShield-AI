@@ -113,7 +113,22 @@ function scoreClaim(workerId, disruptionFactor, userProfile, fraudAnalysis, grap
     if (disruptionFactor.location_mismatch) {
         trustScore -= 35;
         reasons.push("GPS-IP mismatch detected during claim window");
-        adjustments.push({ factor: "GPS Mismatch Penalty", delta: -35 });
+        adjustments.push({ factor: "GPS-IP Mismatch Penalty", delta: -35 });
+    }
+
+    if (disruptionFactor.gpsZone && userProfile.expectedZone && disruptionFactor.gpsZone !== userProfile.expectedZone) {
+        trustScore -= 30;
+        reasons.push(`GPS zone (${disruptionFactor.gpsZone}) does not match expected delivery zone (${userProfile.expectedZone})`);
+        adjustments.push({ factor: "Delivery Zone Mismatch", delta: -30 });
+    }
+
+    if (disruptionFactor.weatherTimestamp && disruptionFactor.claimTimestamp) {
+        const timeDiff = Math.abs(new Date(disruptionFactor.claimTimestamp) - new Date(disruptionFactor.weatherTimestamp));
+        if (timeDiff > 2 * 60 * 60 * 1000) { // 2 hours diff
+            trustScore -= 25;
+            reasons.push("Claim timestamp is historically inconsistent with actual weather event timestamp");
+            adjustments.push({ factor: "Timestamp Mismatch Penalty", delta: -25 });
+        }
     }
 
     const reputation = userProfile.reputation || 85;

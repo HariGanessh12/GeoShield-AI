@@ -49,7 +49,12 @@ router.get('/admin-dashboard', async (req, res) => {
                 approved: approvedClaimsCount,
                 approvalRate: parseFloat(approvalRate.toFixed(2))
             },
-            demographics: zonesDb
+            demographics: zonesDb,
+            predictiveAnalytics: [
+                { id: "p1", risk: "HIGH", description: "Upcoming monsoon likely to hit Mumbai South in 48 hrs. Expect 300% surge in claims.", expectedImpact: 450000 },
+                { id: "p2", risk: "MEDIUM", description: "Heatwave projected for Delhi NCR next week. Expected stable but elevated risk.", expectedImpact: 120000 },
+                { id: "p3", risk: "LOW", description: "Stable conditions in Bangalore Central for the next 7 days.", expectedImpact: 5000 }
+            ]
         };
 
         // Save to Cache

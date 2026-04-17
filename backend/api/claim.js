@@ -8,6 +8,7 @@ const Policy = require('../models/policy');
 const User = require('../models/user');
 const { sendSuccess, sendError } = require('../utils/http');
 const { buildTriggerFeed, evaluateTriggerEligibility, selectRecommendedTrigger } = require('../services/triggerEngine');
+const payoutService = require('../services/payoutService');
 
 function getWorkerId(req) {
     const candidate = req.user && (req.user.id || req.user._id || req.user.userId);
@@ -114,7 +115,7 @@ async function processClaimForWorker({
 
     const payoutAmount = claimDecision.status === 'APPROVED' ? (disruptionFactor.lossAmount || 400) : 0;
 
-    await Claim.create({
+    const savedClaim = await Claim.create({
         workerId,
         trigger: disruptionFactor.type,
         claimAmount: disruptionFactor.lossAmount || 0,
@@ -126,6 +127,14 @@ async function processClaimForWorker({
         source,
         triggerSnapshot
     });
+
+    if (savedClaim.status === 'APPROVED') {
+        try {
+            await payoutService.processPayout(savedClaim);
+        } catch (err) {
+            console.error("Payout processing error:", err);
+        }
+    }
 
     return {
         message: "Claim processing completed",
@@ -255,7 +264,7 @@ router.post('/auto-trigger', async (req, res) => {
         const payoutAmount = claimDecision.status === 'APPROVED' ? (disruptionFactor.lossAmount || 400) : 0;
 
         try {
-            await Claim.create({
+            const savedClaim = await Claim.create({
                 workerId: workerId,
                 trigger: disruptionFactor.type,
                 claimAmount: disruptionFactor.lossAmount || 0,
@@ -265,6 +274,14 @@ router.post('/auto-trigger', async (req, res) => {
                 reputationScore: profile.reputation,
                 reasons: claimDecision.reasons
             });
+
+            if (savedClaim.status === 'APPROVED') {
+                try {
+                    await payoutService.processPayout(savedClaim);
+                } catch (err) {
+                    console.error("Payout error:", err);
+                }
+            }
         } catch (persistError) {
             console.warn("Claim persistence failed, returning evaluation anyway:", persistError.message);
         }
@@ -423,6 +440,14 @@ router.patch('/admin/:id/review', async (req, res) => {
         claim.resolutionNote = String(note || '').trim();
         claim.payout = claim.status === 'APPROVED' ? (claim.claimAmount || claim.payout || 0) : 0;
         await claim.save();
+
+        if (claim.status === 'APPROVED') {
+            try {
+                await payoutService.processPayout(claim);
+            } catch (err) {
+                console.error("Payout processing error during manual review:", err);
+            }
+        }
 
         return sendSuccess(res, { message: "Claim review updated", claim });
     } catch (error) {

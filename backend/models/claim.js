@@ -13,6 +13,9 @@ const ClaimSchema = new mongoose.Schema({
     reviewedBy: { type: String, default: null },
     reviewedAt: { type: Date, default: null },
     resolutionNote: { type: String, default: '' },
+    transactionId: { type: String, default: null },
+    payoutStatus: { type: String, default: 'PENDING' },
+    resolutionNote: { type: String, default: '' },
     triggerSnapshot: { type: Object, default: null },
     createdAt: { type: Date, default: Date.now }
 });
