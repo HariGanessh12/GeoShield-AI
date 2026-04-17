@@ -26,6 +26,11 @@ router.post('/process', async (req, res) => {
 
 router.get('/history', async (req, res) => {
     try {
+        if (req.user?.role === 'admin' && String(req.query.scope || '').toLowerCase() === 'all') {
+            const payouts = await payoutService.getAllPayouts();
+            return sendSuccess(res, { payouts });
+        }
+
         const targetUserId = req.user?.role === 'admin' && req.query.userId
             ? String(req.query.userId)
             : String(req.user?.id);

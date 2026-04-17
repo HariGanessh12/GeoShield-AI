@@ -3,6 +3,7 @@ require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') }
 const mongoose = require('mongoose');
 const User = require('../models/user');
 const Claim = require('../models/claim');
+const Payout = require('../models/payout');
 const Policy = require('../models/policy');
 const PolicyToggleLog = require('../models/policyToggleLog');
 const SystemStatus = require('../models/systemStatus');
@@ -72,6 +73,7 @@ async function main() {
             }
 
             await Claim.deleteMany({}, { session });
+            await Payout.deleteMany({}, { session });
             await Policy.deleteMany({}, { session });
             await PolicyToggleLog.deleteMany({}, { session });
             await SystemStatus.deleteMany({}, { session });
@@ -85,11 +87,11 @@ async function main() {
                 workerId: String(worker._id),
                 startDate,
                 endDate,
-                premiumPaid: 315,
+                premiumPaid: 915,
                 coverageAmount: 4200,
-                totalPremiumCollected: 315,
-                totalClaimsPaid: 245,
-                lossRatio: 245 / 315,
+                totalPremiumCollected: 915,
+                totalClaimsPaid: 795,
+                lossRatio: 795 / 915,
                 payoutMultiplier: 3,
                 coveredEvents: ['HEAVY_RAIN', 'HEATWAVE', 'PLATFORM_OUTAGE', 'AQI_SEVERE'],
                 exclusions: ['INACTIVE_WORKER', 'GPS_MISMATCH', 'ALREADY_COMPENSATED', 'FRAUD_FLAGGED', 'DEVICE_ANOMALY'],
@@ -187,7 +189,15 @@ async function main() {
                         severityScore: 0.81,
                         baseProbability: 0.17,
                         eventType: 'HEAVY_RAIN',
-                        zone: 'Delhi NCR'
+                        zone: 'Delhi NCR',
+                        source: 'IMD Rainfall Grid',
+                        reliability: 'high',
+                        lastUpdated: new Date(now.getTime() - 42 * 60 * 60 * 1000),
+                        metadata: {
+                            source_name: 'imd_rainfall_grid',
+                            last_updated_timestamp: new Date(now.getTime() - 42 * 60 * 60 * 1000),
+                            reliability_flag: 'high'
+                        }
                     },
                     triggerSnapshot: {
                         type: 'HEAVY_RAIN',
@@ -196,6 +206,115 @@ async function main() {
                         lossAmount: 245
                     },
                     createdAt: new Date(now.getTime() - 42 * 60 * 60 * 1000)
+                },
+                {
+                    workerId: String(worker._id),
+                    policyId: policy._id,
+                    trigger: 'PLATFORM_OUTAGE',
+                    amount: 190,
+                    trustScore: 88,
+                    status: 'APPROVED',
+                    payout: 190,
+                    reputationScore: worker.reputationScore,
+                    reasons: [
+                        'Platform outage alert overlapped with the active delivery block',
+                        'Dispatch inactivity matched the partner app outage window',
+                        'Settlement retried successfully after an initial rail failure'
+                    ],
+                    source: 'zero_touch_scan',
+                    automated: true,
+                    reviewedBy: null,
+                    reviewedAt: null,
+                    resolutionNote: 'Retry payout of Rs.190 completed after a temporary UPI rail failure',
+                    transactionId: 'txn_demo_outage_retry_190',
+                    providerReference: 'txn_demo_outage_retry_190',
+                    payoutProvider: 'Simulated Payment (Razorpay-ready)',
+                    payoutStatus: 'COMPLETED',
+                    payoutProcessedAt: new Date(now.getTime() - 16 * 60 * 60 * 1000),
+                    payoutMethod: 'UPI',
+                    location: {
+                        zone: 'Delhi NCR',
+                        coordinates: { lat: 28.6102, lng: 77.2186 },
+                        accuracy: 24,
+                        timestamp: new Date(now.getTime() - 16 * 60 * 60 * 1000)
+                    },
+                    deviceInfo: {
+                        ipAddress: '49.36.112.41',
+                        userAgent: 'Mozilla/5.0',
+                        deviceId: 'device_delhi_worker'
+                    },
+                    externalData: {
+                        severityScore: 0.73,
+                        baseProbability: 0.14,
+                        eventType: 'PLATFORM_OUTAGE',
+                        zone: 'Delhi NCR',
+                        source: 'Partner Ops Status Feed',
+                        reliability: 'medium',
+                        lastUpdated: new Date(now.getTime() - 16 * 60 * 60 * 1000),
+                        metadata: {
+                            source_name: 'partner_ops_status_feed',
+                            last_updated_timestamp: new Date(now.getTime() - 16 * 60 * 60 * 1000),
+                            reliability_flag: 'medium'
+                        }
+                    },
+                    triggerSnapshot: {
+                        type: 'PLATFORM_OUTAGE',
+                        label: 'Platform outage disruption',
+                        severityScore: 0.73,
+                        lossAmount: 190
+                    },
+                    createdAt: new Date(now.getTime() - 18 * 60 * 60 * 1000)
+                },
+                {
+                    workerId: String(worker._id),
+                    policyId: policy._id,
+                    trigger: 'HEATWAVE',
+                    amount: 360,
+                    trustScore: 84,
+                    status: 'APPROVED',
+                    payout: 360,
+                    reputationScore: worker.reputationScore,
+                    reasons: [
+                        'Heat index crossed the payout threshold during an active shift',
+                        'Route telemetry showed reduced trip completion while exposure remained high',
+                        'Queued for manual settlement review in the payouts center'
+                    ],
+                    source: 'manual_trigger',
+                    automated: false,
+                    resolutionNote: 'Approved and awaiting payout release from the admin payouts queue',
+                    payoutStatus: 'PENDING',
+                    location: {
+                        zone: 'Delhi NCR',
+                        coordinates: { lat: 28.6355, lng: 77.2245 },
+                        accuracy: 19,
+                        timestamp: new Date(now.getTime() - 3 * 60 * 60 * 1000)
+                    },
+                    deviceInfo: {
+                        ipAddress: '49.36.112.41',
+                        userAgent: 'Mozilla/5.0',
+                        deviceId: 'device_delhi_worker'
+                    },
+                    externalData: {
+                        severityScore: 0.79,
+                        baseProbability: 0.2,
+                        eventType: 'HEATWAVE',
+                        zone: 'Delhi NCR',
+                        source: 'OpenWeather Heat Risk',
+                        reliability: 'high',
+                        lastUpdated: new Date(now.getTime() - 3 * 60 * 60 * 1000),
+                        metadata: {
+                            source_name: 'openweather_heat_risk',
+                            last_updated_timestamp: new Date(now.getTime() - 3 * 60 * 60 * 1000),
+                            reliability_flag: 'high'
+                        }
+                    },
+                    triggerSnapshot: {
+                        type: 'HEATWAVE',
+                        label: 'Heatwave disruption',
+                        severityScore: 0.79,
+                        lossAmount: 360
+                    },
+                    createdAt: new Date(now.getTime() - 3 * 60 * 60 * 1000)
                 },
                 {
                     workerId: String(worker._id),
@@ -229,7 +348,15 @@ async function main() {
                         severityScore: 0.44,
                         baseProbability: 0.11,
                         eventType: 'TRAFFIC_SURGE',
-                        zone: 'Delhi NCR'
+                        zone: 'Delhi NCR',
+                        source: 'Traffic Congestion Feed',
+                        reliability: 'medium',
+                        lastUpdated: new Date(now.getTime() - 26 * 60 * 60 * 1000),
+                        metadata: {
+                            source_name: 'traffic_congestion_feed',
+                            last_updated_timestamp: new Date(now.getTime() - 26 * 60 * 60 * 1000),
+                            reliability_flag: 'medium'
+                        }
                     },
                     createdAt: new Date(now.getTime() - 26 * 60 * 60 * 1000)
                 },
@@ -266,7 +393,15 @@ async function main() {
                         severityScore: 0.77,
                         baseProbability: 0.21,
                         eventType: 'AQI_SEVERE',
-                        zone: 'Delhi NCR'
+                        zone: 'Delhi NCR',
+                        source: 'AQI Forecast Mesh',
+                        reliability: 'medium',
+                        lastUpdated: new Date(now.getTime() - 90 * 60 * 1000),
+                        metadata: {
+                            source_name: 'aqi_forecast_mesh',
+                            last_updated_timestamp: new Date(now.getTime() - 90 * 60 * 1000),
+                            reliability_flag: 'medium'
+                        }
                     },
                     triggerSnapshot: {
                         type: 'AQI_SEVERE',
@@ -278,10 +413,70 @@ async function main() {
                 }
             ];
 
-            await Claim.insertMany(claims, { session });
+            const createdClaims = await Claim.insertMany(claims, { session });
+
+            const heavyRainClaim = createdClaims.find((claim) => claim.trigger === 'HEAVY_RAIN');
+            const outageClaim = createdClaims.find((claim) => claim.trigger === 'PLATFORM_OUTAGE');
+
+            const payoutRecords = await Payout.insertMany([
+                {
+                    claimId: heavyRainClaim._id,
+                    userId: String(worker._id),
+                    amount: 245,
+                    status: 'SUCCESS',
+                    transactionId: 'rzp_demo_rain_245',
+                    paymentMethod: 'UPI',
+                    provider: 'Simulated Payment (Razorpay-ready)',
+                    message: 'Rs.245 credited via UPI (Simulated)',
+                    timestamp: new Date(now.getTime() - 42 * 60 * 60 * 1000),
+                    metadata: {
+                        payoutProvider: 'test',
+                        mode: 'simulated',
+                        scenario: 'auto_approved_heavy_rain'
+                    }
+                },
+                {
+                    claimId: outageClaim._id,
+                    userId: String(worker._id),
+                    amount: 190,
+                    status: 'FAILED',
+                    transactionId: 'txn_demo_outage_failed_190',
+                    paymentMethod: 'UPI',
+                    provider: 'Simulated Payment (Razorpay-ready)',
+                    message: 'Simulated UPI transfer failed. Retry recommended.',
+                    timestamp: new Date(now.getTime() - 17 * 60 * 60 * 1000),
+                    metadata: {
+                        payoutProvider: 'test',
+                        mode: 'simulated',
+                        scenario: 'platform_outage_first_attempt'
+                    }
+                },
+                {
+                    claimId: outageClaim._id,
+                    userId: String(worker._id),
+                    amount: 190,
+                    status: 'SUCCESS',
+                    transactionId: 'txn_demo_outage_retry_190',
+                    paymentMethod: 'UPI',
+                    provider: 'Simulated Payment (Razorpay-ready)',
+                    message: 'Rs.190 credited via UPI after retry (Simulated)',
+                    timestamp: new Date(now.getTime() - 16 * 60 * 60 * 1000),
+                    metadata: {
+                        payoutProvider: 'test',
+                        mode: 'simulated',
+                        scenario: 'platform_outage_retry_success'
+                    }
+                }
+            ], { session });
+
+            heavyRainClaim.payoutRecordId = payoutRecords[0]._id;
+            outageClaim.payoutRecordId = payoutRecords[2]._id;
+            await heavyRainClaim.save({ session });
+            await outageClaim.save({ session });
         });
 
         console.log('Realistic demo data reset completed successfully.');
+        console.log('Seeded 5 demo claims and 3 payout ledger records for user@gmail.com.');
         console.log('Kept login details for admin@gmail.com and user@gmail.com.');
     } finally {
         await session.endSession();

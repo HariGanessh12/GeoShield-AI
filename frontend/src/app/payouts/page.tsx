@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { apiFetch } from "@/utils/api-client";
-import { getSessionUser } from "@/utils/auth";
+import { clearSession, getSessionUser } from "@/utils/auth";
 import { formatCurrency } from "@/utils/format";
+import { AdminCommandBar } from "@/components/admin-command-bar";
 
 type PayoutRecord = {
   _id?: string;
@@ -22,6 +24,7 @@ type PayoutRecord = {
 
 type ClaimsRecord = {
   _id: string;
+  workerId: string;
   status: string;
   payout: number;
   transactionId?: string | null;
@@ -39,6 +42,8 @@ function formatTimestamp(value?: string | null) {
 }
 
 export default function PayoutsPage() {
+  const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const [payouts, setPayouts] = useState<PayoutRecord[]>([]);
   const [approvedClaims, setApprovedClaims] = useState<ClaimsRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,9 +55,11 @@ export default function PayoutsPage() {
     setLoading(true);
     setError("");
     try {
+      const user = getSessionUser();
+      const adminScope = user?.role === "admin" ? "?scope=all" : "";
       const [payoutData, claimsData] = await Promise.all([
-        apiFetch<{ payouts: PayoutRecord[] }>("/api/payout/history"),
-        apiFetch<ClaimsRecord[]>("/api/claim/history"),
+        apiFetch<{ payouts: PayoutRecord[] }>(`/api/payout/history${adminScope}`),
+        apiFetch<ClaimsRecord[]>(`/api/claim/history${adminScope}`),
       ]);
 
       setPayouts(payoutData.payouts || []);
@@ -65,10 +72,21 @@ export default function PayoutsPage() {
   };
 
   useEffect(() => {
-    void loadData();
+    const frame = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(frame);
   }, []);
 
-  const triggerPayout = async (claimId: string, amount: number) => {
+  useEffect(() => {
+    if (!mounted) return;
+    const user = getSessionUser();
+    if (user?.role !== "admin") {
+      router.replace("/");
+      return;
+    }
+    void loadData();
+  }, [mounted, router]);
+
+  const triggerPayout = async (claimId: string, amount: number, workerId: string) => {
     const user = getSessionUser();
     if (!user) return;
 
@@ -80,7 +98,7 @@ export default function PayoutsPage() {
         method: "POST",
         body: JSON.stringify({
           claimId,
-          userId: user.id,
+          userId: user.role === "admin" ? workerId : user.id,
           amount,
         }),
       });
@@ -94,89 +112,107 @@ export default function PayoutsPage() {
     }
   };
 
+  const handleLogout = () => {
+    clearSession();
+    router.replace("/");
+  };
+
+  if (!mounted) return null;
+
   return (
-    <motion.main initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-      <section className="rounded-4xl border border-white/10 bg-white/3 p-8 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-2xl">
-        <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-300 light-mode:text-emerald-700">Payments</p>
-        <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <h1 className="text-4xl font-black text-white light-mode:text-slate-900">Payout Center</h1>
-            <p className="mt-3 max-w-2xl text-white/65 light-mode:text-slate-600">Simulated Payment (Razorpay-ready). Review completed payouts and trigger settlement for approved claims.</p>
-          </div>
-          <Link href="/claims" className="text-sm font-semibold text-sky-300 light-mode:text-sky-700 hover:underline">Back to claims</Link>
-        </div>
-      </section>
-
-      {banner ? (
-        <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} className="mt-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-4 text-sm text-emerald-100 light-mode:text-emerald-700">
-          {banner}
-        </motion.div>
-      ) : null}
-      {error ? <div className="mt-6 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-5 py-4 text-sm text-rose-200 light-mode:text-rose-700">{error}</div> : null}
-
-      <div className="mt-8 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-        <section className="rounded-4xl border border-white/10 bg-white/3 p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-xl">
-          <h2 className="text-2xl font-black text-white light-mode:text-slate-900">Approved claims awaiting settlement</h2>
-          <div className="mt-6 space-y-4">
-            {loading ? <div className="rounded-2xl border border-dashed border-white/10 px-4 py-8 text-sm text-white/50 light-mode:border-black/10 light-mode:text-slate-500">Loading approved claims...</div> : null}
-            {!loading && approvedClaims.length === 0 ? <div className="rounded-2xl border border-dashed border-white/10 px-4 py-8 text-sm text-white/50 light-mode:border-black/10 light-mode:text-slate-500">No approved claims available.</div> : null}
-            {approvedClaims.map((claim) => (
-              <div key={claim._id} className="rounded-2xl border border-white/10 bg-black/20 p-5 light-mode:border-black/10 light-mode:bg-white">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-bold text-white light-mode:text-slate-900">Claim {claim._id}</div>
-                    <div className="text-xs text-white/50 light-mode:text-slate-500">Approved for settlement</div>
-                  </div>
-                  <span className="text-sm font-bold text-white light-mode:text-slate-900">{formatCurrency(claim.payout)}</span>
-                </div>
-                {claim.transactionId ? (
-                  <div className="mt-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100 light-mode:text-emerald-700">
-                    Payout completed | Txn {claim.transactionId}
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => triggerPayout(claim._id, claim.payout)}
-                    disabled={processingClaimId === claim._id}
-                    className="mt-4 w-full rounded-2xl bg-emerald-500 px-5 py-4 text-sm font-black text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {processingClaimId === claim._id ? "Processing payout..." : "Process payout"}
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="rounded-4xl border border-white/10 bg-white/3 p-6 backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70 shadow-xl">
-          <h2 className="text-2xl font-black text-white light-mode:text-slate-900">Payout ledger</h2>
-          <div className="mt-6 space-y-4">
-            {loading ? <div className="rounded-2xl border border-dashed border-white/10 px-4 py-8 text-sm text-white/50 light-mode:border-black/10 light-mode:text-slate-500">Loading payout ledger...</div> : null}
-            {!loading && payouts.length === 0 ? <div className="rounded-2xl border border-dashed border-white/10 px-4 py-8 text-sm text-white/50 light-mode:border-black/10 light-mode:text-slate-500">No payouts recorded yet.</div> : null}
-            {payouts.map((payout) => (
-              <motion.div key={payout.transactionId} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="rounded-2xl border border-white/10 bg-black/20 p-5 light-mode:border-black/10 light-mode:bg-white shadow-sm">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <div className="text-lg font-bold text-white light-mode:text-slate-900">Claim {payout.claimId}</div>
-                    <div className="text-xs text-white/50 light-mode:text-slate-500">{formatTimestamp(payout.timestamp)}</div>
-                  </div>
-                  <div className={`rounded-full px-3 py-1 text-xs font-bold ${payout.status === "SUCCESS" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-rose-500/30 bg-rose-500/10 text-rose-300"}`}>
-                    {payout.status}
-                  </div>
-                </div>
-                <div className="mt-4 flex flex-wrap gap-5 text-sm text-white/70 light-mode:text-slate-600">
-                  <span>Amount: {formatCurrency(payout.amount)}</span>
-                  <span>Method: {payout.paymentMethod}</span>
-                  <span>Transaction ID: {payout.transactionId}</span>
-                </div>
-                <div className="mt-4 rounded-2xl border border-white/10 px-4 py-3 text-sm text-white/75 light-mode:border-black/10 light-mode:text-slate-600">
-                  {payout.message}
-                </div>
-                <div className="mt-3 text-xs text-white/50 light-mode:text-slate-500">{payout.provider}</div>
-              </motion.div>
-            ))}
-          </div>
-        </section>
+    <div className="min-h-screen bg-[rgb(var(--background-start-rgb))] text-[rgb(var(--foreground-rgb))] font-sans selection:bg-indigo-500/30">
+      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+        <motion.div animate={{ scale: [1, 1.1, 1], rotate: [0, 5, 0] }} transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }} className="absolute left-[-10%] top-[-20%] h-[50%] w-[50%] rounded-full bg-indigo-600/10 blur-[120px] light-mode:bg-indigo-600/5" />
+        <motion.div animate={{ scale: [1, 1.2, 1], rotate: [0, -5, 0] }} transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 1 }} className="absolute right-[-10%] top-[20%] h-[50%] w-[50%] rounded-full bg-rose-900/10 blur-[120px] light-mode:bg-rose-900/5" />
       </div>
-    </motion.main>
+
+      <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
+        <AdminCommandBar activeTab="payouts" onSignOut={handleLogout} />
+      </motion.div>
+
+      <motion.main initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="relative z-10 mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+        <section className="rounded-4xl border border-white/10 bg-white/3 p-8 shadow-2xl backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-300 light-mode:text-emerald-700">Payments</p>
+          <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h1 className="text-4xl font-black text-white light-mode:text-slate-900">Payout Center</h1>
+              <p className="mt-3 max-w-2xl text-white/65 light-mode:text-slate-600">Simulated Payment (Razorpay-ready). Review completed payouts and trigger settlement for approved claims.</p>
+            </div>
+            <Link href="/claims" className="text-sm font-semibold text-sky-300 hover:underline light-mode:text-sky-700">Back to claims</Link>
+          </div>
+        </section>
+
+        {banner ? (
+          <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} className="mt-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-4 text-sm text-emerald-100 light-mode:text-emerald-700">
+            {banner}
+          </motion.div>
+        ) : null}
+        {error ? <div className="mt-6 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-5 py-4 text-sm text-rose-200 light-mode:text-rose-700">{error}</div> : null}
+
+        <div className="mt-8 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+          <section className="rounded-4xl border border-white/10 bg-white/3 p-6 shadow-xl backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70">
+            <h2 className="text-2xl font-black text-white light-mode:text-slate-900">Approved claims awaiting settlement</h2>
+            <div className="mt-6 space-y-4">
+              {loading ? <div className="rounded-2xl border border-dashed border-white/10 px-4 py-8 text-sm text-white/50 light-mode:border-black/10 light-mode:text-slate-500">Loading approved claims...</div> : null}
+              {!loading && approvedClaims.length === 0 ? <div className="rounded-2xl border border-dashed border-white/10 px-4 py-8 text-sm text-white/50 light-mode:border-black/10 light-mode:text-slate-500">No approved claims available.</div> : null}
+              {approvedClaims.map((claim) => (
+                <div key={claim._id} className="rounded-2xl border border-white/10 bg-black/20 p-5 light-mode:border-black/10 light-mode:bg-white">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-bold text-white light-mode:text-slate-900">Claim {claim._id}</div>
+                      <div className="text-xs text-white/50 light-mode:text-slate-500">Approved for settlement</div>
+                    </div>
+                    <span className="text-sm font-bold text-white light-mode:text-slate-900">{formatCurrency(claim.payout)}</span>
+                  </div>
+                  {claim.transactionId ? (
+                    <div className="mt-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100 light-mode:text-emerald-700">
+                      Payout completed | Txn {claim.transactionId}
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => triggerPayout(claim._id, claim.payout, claim.workerId)}
+                      disabled={processingClaimId === claim._id}
+                      className="mt-4 w-full rounded-2xl bg-emerald-500 px-5 py-4 text-sm font-black text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {processingClaimId === claim._id ? "Processing payout..." : "Process payout"}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-4xl border border-white/10 bg-white/3 p-6 shadow-xl backdrop-blur-2xl light-mode:border-black/10 light-mode:bg-white/70">
+            <h2 className="text-2xl font-black text-white light-mode:text-slate-900">Payout ledger</h2>
+            <div className="mt-6 space-y-4">
+              {loading ? <div className="rounded-2xl border border-dashed border-white/10 px-4 py-8 text-sm text-white/50 light-mode:border-black/10 light-mode:text-slate-500">Loading payout ledger...</div> : null}
+              {!loading && payouts.length === 0 ? <div className="rounded-2xl border border-dashed border-white/10 px-4 py-8 text-sm text-white/50 light-mode:border-black/10 light-mode:text-slate-500">No payouts recorded yet.</div> : null}
+              {payouts.map((payout) => (
+                <motion.div key={payout.transactionId} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="rounded-2xl border border-white/10 bg-black/20 p-5 shadow-sm light-mode:border-black/10 light-mode:bg-white">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <div className="text-lg font-bold text-white light-mode:text-slate-900">Claim {payout.claimId}</div>
+                      <div className="text-xs text-white/50 light-mode:text-slate-500">{formatTimestamp(payout.timestamp)}</div>
+                    </div>
+                    <div className={`rounded-full px-3 py-1 text-xs font-bold ${payout.status === "SUCCESS" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-rose-500/30 bg-rose-500/10 text-rose-300"}`}>
+                      {payout.status}
+                    </div>
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-5 text-sm text-white/70 light-mode:text-slate-600">
+                    <span>Amount: {formatCurrency(payout.amount)}</span>
+                    <span>Method: {payout.paymentMethod}</span>
+                    <span>Transaction ID: {payout.transactionId}</span>
+                  </div>
+                  <div className="mt-4 rounded-2xl border border-white/10 px-4 py-3 text-sm text-white/75 light-mode:border-black/10 light-mode:text-slate-600">
+                    {payout.message}
+                  </div>
+                  <div className="mt-3 text-xs text-white/50 light-mode:text-slate-500">{payout.provider}</div>
+                </motion.div>
+              ))}
+            </div>
+          </section>
+        </div>
+      </motion.main>
+    </div>
   );
 }

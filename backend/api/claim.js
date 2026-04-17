@@ -262,6 +262,11 @@ async function processClaimForWorker({
 
 router.get('/history', async (req, res) => {
     try {
+        if (req.user?.role === 'admin' && String(req.query.scope || '').toLowerCase() === 'all') {
+            const claims = await Claim.find({}).sort({ createdAt: -1 }).limit(25).lean();
+            return sendSuccess(res, claims);
+        }
+
         const workerId = getWorkerId(req);
         if (!workerId) return sendError(res, 401, 'Unauthorized');
         const claims = await Claim.find({ workerId }).sort({ createdAt: -1 }).limit(10).lean();

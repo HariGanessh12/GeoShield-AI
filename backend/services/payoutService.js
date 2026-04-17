@@ -198,6 +198,10 @@ async function getPayoutsForUser(userId) {
     return Payout.find({ userId: String(userId) }).sort({ timestamp: -1 }).limit(25).lean();
 }
 
+async function getAllPayouts() {
+    return Payout.find({}).sort({ timestamp: -1 }).limit(50).lean();
+}
+
 async function getPayoutSummary(userId) {
     const normalizedUserId = String(userId);
     const [payouts, approvedClaimsCount, activePolicy] = await Promise.all([
@@ -246,6 +250,7 @@ module.exports = {
     processPayoutByClaim,
     retryPayout,
     getPayoutAnalytics,
+    getAllPayouts,
     getPayoutsForUser,
     getPayoutSummary
 };
