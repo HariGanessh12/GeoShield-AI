@@ -108,25 +108,27 @@ export default function AdminUsersDashboard() {
       <motion.nav 
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="relative z-10 flex items-center justify-between px-8 py-6 border-b border-white/5 backdrop-blur-xl bg-[#0d0f17]/50 light-mode:border-black/5 light-mode:bg-white/50"
+        className="relative z-10 border-b border-white/5 backdrop-blur-xl bg-[#0d0f17]/50 light-mode:border-black/5 light-mode:bg-white/50"
       >
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-500 to-orange-500 flex items-center justify-center shadow-lg shadow-rose-500/30">
-            <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-            </svg>
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-6 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-500 to-orange-500 flex items-center justify-center shadow-lg shadow-rose-500/30">
+              <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+            </div>
+            <div>
+                <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60 light-mode:from-slate-900 light-mode:to-slate-600">User Access Control</h1>
+                <p className="text-[10px] uppercase tracking-widest text-indigo-400 font-bold light-mode:text-indigo-600">System Administrator</p>
+            </div>
           </div>
-          <div>
-              <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60 light-mode:from-slate-900 light-mode:to-slate-600">User Access Control</h1>
-              <p className="text-[10px] uppercase tracking-widest text-indigo-400 font-bold light-mode:text-indigo-600">System Administrator</p>
+          <div className="flex items-center gap-6">
+            <div className="hidden md:flex gap-6 mr-4 border-r border-white/10 pr-6 light-mode:border-black/10">
+               <Link href="/admin" className="text-sm font-bold text-gray-400 hover:text-white transition-colors pb-1 border-b-2 border-transparent light-mode:text-slate-500 light-mode:hover:text-slate-900">Dashboard</Link>
+               <Link href="/admin/users" className="text-sm font-bold text-white transition-colors border-b-2 border-indigo-500 pb-1 light-mode:text-slate-900">User Management</Link>
+            </div>
+            <button onClick={handleLogout} className="text-xs font-bold text-gray-400 hover:text-white transition-colors border border-white/10 hover:border-white/30 rounded-lg px-4 py-2 light-mode:border-black/10 light-mode:text-slate-600 light-mode:hover:text-slate-900 transition-all hover:bg-white/5">Sign Out</button>
           </div>
-        </div>
-        <div className="flex items-center gap-6">
-          <div className="hidden md:flex gap-6 mr-4 border-r border-white/10 pr-6 light-mode:border-black/10">
-             <Link href="/admin" className="text-sm font-bold text-gray-400 hover:text-white transition-colors pb-1 border-b-2 border-transparent light-mode:text-slate-500 light-mode:hover:text-slate-900">Dashboard</Link>
-             <Link href="/admin/users" className="text-sm font-bold text-white transition-colors border-b-2 border-indigo-500 pb-1 light-mode:text-slate-900">User Management</Link>
-          </div>
-          <button onClick={handleLogout} className="text-xs font-bold text-gray-400 hover:text-white transition-colors border border-white/10 hover:border-white/30 rounded-lg px-4 py-2 light-mode:border-black/10 light-mode:text-slate-600 light-mode:hover:text-slate-900 transition-all hover:bg-white/5">Sign Out</button>
         </div>
       </motion.nav>
 
@@ -134,7 +136,7 @@ export default function AdminUsersDashboard() {
         initial="hidden"
         animate="visible"
         variants={containerVariants}
-        className="relative z-10 max-w-[1200px] mx-auto px-6 py-12"
+        className="relative z-10 mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8"
       >
         <motion.div variants={itemVariants} className="bg-white/[0.02] backdrop-blur-2xl border border-white/5 rounded-[2rem] p-8 shadow-2xl light-mode:bg-white light-mode:border-black/5 light-mode:shadow-xl">
             <h3 className="text-xl font-semibold mb-6 flex items-center gap-2 border-b border-white/5 pb-4 light-mode:border-black/5 light-mode:text-slate-900">

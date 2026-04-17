@@ -95,24 +95,26 @@ export default function AdminDashboard() {
         <motion.div animate={{ scale: [1, 1.2, 1], rotate: [0, -5, 0] }} transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 1 }} className="absolute top-[20%] right-[-10%] w-[50%] h-[50%] bg-rose-900/10 blur-[120px] rounded-full light-mode:bg-rose-900/5"></motion.div>
       </div>
 
-      <nav className="relative z-10 flex items-center justify-between px-8 py-6 border-b border-white/5 backdrop-blur-xl bg-[#0d0f17]/50 light-mode:border-black/5 light-mode:bg-white/50">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-linear-to-tr from-rose-500 to-orange-500 flex items-center justify-center shadow-lg shadow-rose-500/30">
-            <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-            </svg>
+      <nav className="relative z-10 border-b border-white/5 backdrop-blur-xl bg-[#0d0f17]/50 light-mode:border-black/5 light-mode:bg-white/50">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-6 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-linear-to-tr from-rose-500 to-orange-500 flex items-center justify-center shadow-lg shadow-rose-500/30">
+              <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+            </div>
+            <div>
+                <h1 className="text-xl font-bold bg-clip-text text-transparent bg-linear-to-r from-white to-white/60 light-mode:from-slate-900 light-mode:to-slate-600">Command Center</h1>
+                <p className="text-[10px] uppercase tracking-widest text-rose-400 font-bold">Admin Privileges Active</p>
+            </div>
           </div>
-          <div>
-              <h1 className="text-xl font-bold bg-clip-text text-transparent bg-linear-to-r from-white to-white/60 light-mode:from-slate-900 light-mode:to-slate-600">Command Center</h1>
-              <p className="text-[10px] uppercase tracking-widest text-rose-400 font-bold">Admin Privileges Active</p>
+          <div className="flex items-center gap-6">
+            <div className="hidden md:flex gap-6 mr-4 border-r border-white/10 pr-6 light-mode:border-black/10">
+               <Link href="/admin" className="text-sm font-bold text-white transition-colors border-b-2 border-rose-500 pb-1 light-mode:text-slate-900">Dashboard</Link>
+               <Link href="/admin/users" className="text-sm font-bold text-gray-500 hover:text-gray-300 transition-colors pb-1 border-b-2 border-transparent hover:border-white/20 light-mode:text-slate-500 light-mode:hover:text-slate-900">User Management</Link>
+            </div>
+            <button onClick={handleLogout} className="text-xs font-bold text-gray-400 hover:text-white transition-colors border border-white/10 hover:border-white/30 rounded-lg px-4 py-2 light-mode:border-black/10 light-mode:text-slate-600 light-mode:hover:text-slate-900">Sign Out</button>
           </div>
-        </div>
-        <div className="flex items-center gap-6">
-          <div className="hidden md:flex gap-6 mr-4 border-r border-white/10 pr-6 light-mode:border-black/10">
-             <Link href="/admin" className="text-sm font-bold text-white transition-colors border-b-2 border-rose-500 pb-1 light-mode:text-slate-900">Dashboard</Link>
-             <Link href="/admin/users" className="text-sm font-bold text-gray-500 hover:text-gray-300 transition-colors pb-1 border-b-2 border-transparent hover:border-white/20 light-mode:text-slate-500 light-mode:hover:text-slate-900">User Management</Link>
-          </div>
-          <button onClick={handleLogout} className="text-xs font-bold text-gray-400 hover:text-white transition-colors border border-white/10 hover:border-white/30 rounded-lg px-4 py-2 light-mode:border-black/10 light-mode:text-slate-600 light-mode:hover:text-slate-900">Sign Out</button>
         </div>
       </nav>
 
@@ -120,7 +122,7 @@ export default function AdminDashboard() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, staggerChildren: 0.1 }}
-        className="relative z-10 max-w-350 mx-auto px-6 py-12"
+        className="relative z-10 mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8"
       >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <motion.div 
