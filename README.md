@@ -1,392 +1,253 @@
 # GeoShield-AI
 
-GeoShield-AI is a web-first parametric insurance demo for gig workers. It combines weekly policy pricing, shift-based coverage toggling, explainable claims decisions, payout simulation, and an admin review console on top of a geospatial risk narrative.
+GeoShield-AI is an AI-powered parametric insurance platform for gig workers that models quote generation, shift-based coverage, automated claim decisions, fraud detection, and payout simulation in one demo-ready product.
 
-The repository is organized as a small monorepo:
+## Overview
 
-- `frontend/`: Next.js 16 app for the public demo, worker experience, and admin console
-- `backend/`: Express 5 API, auth, policy logic, claims, payouts, metrics, and demo-data seeding
-- `ai-engine/`: FastAPI risk and fraud services with local backend fallbacks
-- `database/`: mock/seed support files
-- `shared/`: shared pricing configuration
-- `workflows/`: JSON workflow descriptions for risk and claims automation
+GeoShield-AI is built as a small monorepo with three core layers:
 
-## What The App Does
+- A `Next.js` frontend for the public experience, worker dashboard, and admin console
+- An `Express.js` backend for authentication, policy orchestration, claims, payouts, and metrics
+- A `FastAPI` AI engine for risk scoring, anomaly detection, and graph-based fraud analysis
 
-GeoShield-AI models a gig-worker protection flow where a worker can:
+The project is designed to demonstrate how an insurance workflow can move from reactive claims handling to proactive, explainable, and automation-friendly protection.
 
-1. Register or log in
-2. Request and activate a weekly policy
-3. Toggle shift coverage `ON` and `OFF`
-4. Monitor live zone risk and premium context
-5. Submit manual claims or run a zero-touch trigger scan
-6. See explainable claim outcomes with trust scoring
-7. Track payouts and payout history
+## Features
 
-The admin experience adds:
-
-- an admin dashboard for claims and financial metrics
-- a user-management page for role updates and account cleanup
-- a payouts center with settlement processing and payout ledger visibility
-- a review queue for `VERIFY` claims
-
-## Current Product Surfaces
-
-### Public / marketing-style pages
-
-- `/`: landing page
-- `/demo`: public geospatial demo workspace
-- `/privacy`
-
-### Worker-facing app
-
-- `/register`
-- `/login`
-- `/dashboard`
-- `/dashboard/policy`
-- `/policy`
-- `/risk`
-- `/claims`
-
-### Admin-facing app
-
-- `/admin`
-- `/admin/users`
-- `/payouts`
-
-The admin pages share the same in-app command bar with tabs for dashboard, user management, and payouts.
-
-## Core Flows
-
-### Policy flow
-
-- Workers request a quote from `POST /api/policy/quote`
-- A weekly policy can be activated from `POST /api/policy/activate`
-- Current policy, history, terms, and updates are exposed through `/api/policy/*`
-- The worker dashboard and policy pages display premium, coverage amount, loss ratio context, and policy history
-
-### Shift-based micro-coverage
-
-- Coverage can be toggled from the worker summary flow
-- Toggle history is persisted and exposed through `/api/worker/:id/policy/history`
-- The backend auto-pauses coverage after 12 continuous hours to avoid accidental overbilling
-
-### Claims flow
-
-- Manual claim trigger: `POST /api/claim/auto-trigger`
-- Zero-touch automation scan: `POST /api/claim/zero-touch-scan`
-- Trigger feed: `GET /api/claim/triggers/feed`
-- Claim history: `GET /api/claim/history`
-- Admin review queue: `GET /api/claim/admin/review-queue`
-- Admin review action: `PATCH /api/claim/admin/:id/review`
-
-Claim outcomes are explainable and currently resolve to:
-
-- `APPROVED`
-- `VERIFY`
-- `REJECTED`
-
-### Payout flow
-
-- Settlement processing: `POST /api/payout/process`
-- Payout history: `GET /api/payout/history`
-- Payout summary: `GET /api/payout/summary`
-- Claim payout lookup: `GET /api/payout/claim/:claimId`
-
-The current payout rail is simulated but structured as a Razorpay-ready service abstraction. The admin payouts page can view platform-wide seeded payout activity, while worker-level views use the worker-specific summary/history endpoints.
+- Weekly policy quote and activation flow for workers
+- Shift-based coverage toggling with usage history tracking
+- Risk-aware pricing and premium breakdown logic
+- Automated and manual claim trigger workflows
+- Explainable claim decisions with `APPROVED`, `VERIFY`, and `REJECTED` outcomes
+- Fraud and anomaly checks through Python-based ML services
+- Graph-based coordinated attack detection for suspicious clusters
+- Admin dashboard for claims, payouts, users, and business metrics
+- Seeded demo data for recruiter demos, presentations, and testing
+- Backend fallback behavior so the demo remains usable if the AI service is unavailable
 
 ## Tech Stack
 
-### Frontend
+- `Next.js 16` - App Router frontend for the landing experience, worker flows, and admin pages
+- `React 19` - Component-driven UI layer for interactive dashboards and stateful pages
+- `TypeScript` - Strong typing for safer frontend development
+- `Tailwind CSS v4` - Utility-first styling for responsive UI development
+- `Framer Motion` - Smooth animations and transitions across the frontend experience
+- `Leaflet` - Map visualization for geospatial risk storytelling
+- `Node.js` - JavaScript runtime for backend services
+- `Express 5` - REST API layer handling auth, policies, claims, payouts, and admin operations
+- `MongoDB + Mongoose` - Document database and ODM for flexible insurance and user data models
+- `JWT + Cookies` - Session and authentication handling
+- `FastAPI` - Python microservice for AI endpoints
+- `scikit-learn` - Behavioral anomaly and fraud modeling
+- `NumPy` - Numerical operations for model calculations
+- `NetworkX` - Fraud-ring and graph relationship analysis
+- `Jest + Supertest` - Backend testing for policy and trust-score workflows
 
-- Next.js 16
-- React 19
-- TypeScript
-- Tailwind CSS v4
-- Framer Motion
-- Leaflet
-- next-sitemap
+## Folder Structure
 
-### Backend
-
-- Node.js
-- Express 5
-- Mongoose
-- JWT authentication
-- Helmet
-- CORS
-- express-rate-limit
-- Zod-based validators
-
-### AI / analytics
-
-- FastAPI
-- scikit-learn
-- NumPy
-- NetworkX
-
-### Testing
-
-- Jest
-- Supertest
-
-## Backend Behavior Worth Knowing
-
-- The backend now waits for MongoDB before starting the HTTP server.
-- `/health` reflects database state and returns `503` if Mongo is unavailable.
-- Production proxy handling is enabled so rate limiting works correctly behind Render or another reverse proxy.
-- Login returns `503` for database-unavailable scenarios instead of a misleading generic `500`.
-- Password hashing uses the current async Mongoose hook style and transparently upgrades demo/plaintext passwords to bcrypt on save.
-
-## Architecture Overview
-
-### Frontend
-
-The frontend is a static Next.js app that talks to the backend API. It includes:
-
-- a public storytelling layer
-- a protected worker dashboard
-- an admin command center
-- policy, claims, risk, and payouts pages
-
-### Backend
-
-The backend is the orchestration layer. It handles:
-
-- auth and session cookies
-- policy pricing and activation
-- worker policy toggles and summaries
-- claim creation and admin review
-- payout processing and payout summaries
-- admin/business metrics
-- demo-data reset scripts
-
-### AI engine
-
-The Python service provides:
-
-- risk scoring
-- premium modeling
-- fraud/anomaly evaluation
-- graph-based fraud/ring analysis
-
-If the AI service is unavailable, the backend falls back to local logic so the app remains demoable.
-
-## Key API Routes
-
-### Auth
-
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-- `POST /api/auth/logout`
-- `GET /api/auth/session`
-- `GET /api/auth/users`
-- `PUT /api/auth/users/:id/role`
-- `DELETE /api/auth/users/:id`
-
-### Policy
-
-- `GET /api/policy/current`
-- `GET /api/policy/history`
-- `GET /api/policy/terms`
-- `POST /api/policy/quote`
-- `POST /api/policy/activate`
-- `PUT /api/policy/current`
-- `POST /api/policy/cancel`
-
-### Claims
-
-- `GET /api/claim/history`
-- `POST /api/claim/auto-trigger`
-- `POST /api/claim/zero-touch-scan`
-- `GET /api/claim/triggers/feed`
-- `GET /api/claim/admin/review-queue`
-- `PATCH /api/claim/admin/:id/review`
-
-### Payouts
-
-- `POST /api/payout/process`
-- `GET /api/payout/history`
-- `GET /api/payout/summary`
-- `GET /api/payout/claim/:claimId`
-
-### Worker micro-policy
-
-- `GET /api/worker/:id/summary`
-- `POST /api/worker/:id/policy/toggle`
-- `GET /api/worker/:id/policy/history`
-- `GET /api/worker/:id/policy/summary`
-
-### Risk and metrics
-
-- `GET /api/risk/zone-risk`
-- `GET /api/risk/weather-metadata`
-- `POST /api/risk/premium-breakdown`
-- `GET /api/metrics/business`
-- `GET /api/metrics/admin/financials`
-- `GET /api/metrics/admin-dashboard`
-
-### System
-
-- `GET /health`
-- `GET /version`
-- `GET /system/status`
-
-## Demo Data
-
-The fastest way to make the app look alive is to seed the current realistic demo set:
-
-```bash
-cd backend
-npm run reset:realistic-data
+```text
+GeoShield-AI/
+|-- ai-engine/        # FastAPI service for fraud, graph, and risk models
+|-- backend/          # Express API, business logic, auth, claims, payouts
+|-- database/         # Seed and mock data
+|-- frontend/         # Next.js application
+|-- shared/           # Shared configuration such as pricing rules
+|-- workflows/        # JSON workflow definitions
+|-- project_analysis.md
+`-- README.md
 ```
 
-This keeps the demo users and reseeds:
+## How It Works
 
-- 1 active worker policy
-- recent policy toggle history
-- 5 sample claims across `APPROVED`, `VERIFY`, and `REJECTED`
-- 3 payout ledger records, including a failure-and-retry scenario
-- enough worker/admin data for the dashboard, claims page, review queue, and payouts center
+1. A worker logs in and requests a policy quote.
+2. The backend calculates pricing and activates a weekly policy.
+3. The worker can toggle shift coverage on or off during active work hours.
+4. Claims can be triggered manually or through automated disruption workflows.
+5. The backend evaluates the event, optionally calls the AI engine, and assigns a trust-based outcome.
+6. Approved claims move into payout simulation, while `VERIFY` claims appear in the admin review queue.
 
-### Demo credentials
-
-- Admin: `admin@gmail.com` / `password`
-- Worker: `user@gmail.com` / `password`
-
-## Local Setup
+## Installation
 
 ### Prerequisites
 
-- Node.js 18+
-- Python 3.10+
-- MongoDB local instance or MongoDB Atlas
+- `Node.js 18+`
+- `Python 3.10+`
+- `MongoDB` local instance or MongoDB Atlas connection
 
-### 1. Backend
+### 1. Clone the repository
+
+```bash
+git clone <your-repository-url>
+cd GeoShield-AI
+```
+
+### 2. Install backend dependencies
 
 ```bash
 cd backend
 npm install
+cd ..
 ```
 
-Create `backend/.env`:
-
-```env
-PORT=8000
-MONGO_URI=mongodb://localhost:27017/geoshield
-JWT_SECRET=geoshield_super_secret_key_2026
-AI_ENGINE_BASE_URL=http://localhost:8001
-TRUSTED_ORIGINS=http://localhost:3000
-PAYOUT_PROVIDER=test
-RUN_JOBS=false
-```
-
-Start the API:
+### 3. Install frontend dependencies
 
 ```bash
-npm run dev
+cd frontend
+npm install
+cd ..
 ```
 
-Optional:
-
-- `npm run reset:realistic-data`
-- `npm run test`
-- `npm run lint:check`
-
-### 2. AI engine
+### 4. Install AI engine dependencies
 
 ```bash
 cd ai-engine
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
-python main.py
+cd ..
 ```
 
-### 3. Frontend
+## Environment Variables
 
-```bash
-cd frontend
-npm install
-npm run dev
+### Backend: `backend/.env`
+
+```env
+PORT=8000
+MONGO_URI=mongodb://localhost:27017/geoshield
+JWT_SECRET=your_jwt_secret
+JWT_EXPIRY=1d
+TRUSTED_ORIGINS=http://localhost:3000
+AI_ENGINE_BASE_URL=http://localhost:8001
+PAYOUT_PROVIDER=test
+RUN_JOBS=false
+OPENWEATHER_API_KEY=
+OPENWEATHER_BASE_URL=https://api.openweathermap.org/data/2.5/weather
+AUTH_COOKIE_NAME=geoshield_session
+AUTH_COOKIE_DOMAIN=
+AUTH_COOKIE_SECURE=false
+STRIPE_SECRET_KEY=
+RAZORPAY_KEY_ID=
+RAZORPAY_KEY_SECRET=
+WORKER_INSTANCE_ID=
 ```
 
-Optional `frontend/.env.local`:
+### Frontend: `frontend/.env.local`
 
 ```env
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+NEXT_PUBLIC_BASE_PATH=
 ```
 
-## Production Notes
+## Run Commands
 
-- The frontend defaults to `https://geoshield-ai-2.onrender.com` as the API base if `NEXT_PUBLIC_API_BASE_URL` is not supplied.
-- The frontend sets security headers in `frontend/next.config.ts`.
-- The backend expects a working `MONGO_URI` and `JWT_SECRET`.
-- In production, cookies use `SameSite=None` and secure-cookie behavior.
-- Render-style proxy environments are supported via Express `trust proxy`.
+### Step 1: Start the backend API
 
-## Optional Worker Process
+```bash
+cd backend
+npm run dev
+```
 
-Background jobs can be run separately:
+The backend runs on `http://localhost:8000`.
+
+### Step 2: Start the AI engine
+
+```bash
+cd ai-engine
+.venv\Scripts\activate
+python main.py
+```
+
+The AI engine runs on `http://localhost:8001`.
+
+### Step 3: Start the frontend
+
+```bash
+cd frontend
+npm run dev
+```
+
+The frontend runs on `http://localhost:3000`.
+
+### Step 4: Seed realistic demo data
+
+```bash
+cd backend
+npm run reset:realistic-data
+```
+
+### Optional commands
+
+```bash
+cd backend
+npm test
+```
 
 ```bash
 cd backend
 npm run start:worker
 ```
 
-This worker connects to MongoDB and starts scheduled background jobs such as payout reconciliation and automated trigger monitoring.
-
-## Testing
-
-Backend tests currently cover:
-
-- trust score behavior
-- AI fallback behavior
-- worker policy toggle flow
-- policy history
-- auto-shutoff after 12 hours
-- unauthorized access handling
-
-Run:
-
 ```bash
 cd backend
-node .\node_modules\jest\bin\jest.js --runInBand
+npm run lint:check
 ```
 
-`npm test` also works in a normal local environment.
+## Demo Credentials
 
-## Repository Structure
+- Admin: `admin@gmail.com` / `password`
+- Worker: `user@gmail.com` / `password`
 
-```text
-GeoShield-AI/
-|-- ai-engine/
-|-- backend/
-|-- database/
-|-- frontend/
-|-- shared/
-|-- workflows/
-|-- project_analysis.md
-|-- README.md
+## Screenshots
+
+Add project screenshots here once available.
+
+```md
+![Landing Page](./docs/screenshots/landing-page.png)
+![Worker Dashboard](./docs/screenshots/worker-dashboard.png)
+![Admin Console](./docs/screenshots/admin-console.png)
 ```
 
-## Current Limitations
+Suggested captures:
 
-- Several external data feeds are still simulated or blended with fallback logic.
-- The payout provider is simulated rather than a live production integration.
-- Worker/auth/session flows are demo-friendly and should be hardened further for production.
-- Pricing logic exists in both quote-oriented and richer breakdown-oriented paths.
-- The frontend and backend are tuned for a strong demo and hackathon story, not yet full production operations.
+- Landing page
+- Worker dashboard
+- Claims page
+- Risk map view
+- Admin review queue
+- Payout dashboard
 
-## Summary
+## API Highlights
 
-GeoShield-AI currently demos a complete worker-insurance loop:
+- `POST /api/auth/register` - register a user
+- `POST /api/auth/login` - authenticate a user
+- `POST /api/policy/quote` - generate a policy quote
+- `POST /api/policy/activate` - activate a worker policy
+- `POST /api/claim/auto-trigger` - trigger a claim workflow
+- `POST /api/claim/zero-touch-scan` - run automated disruption checks
+- `GET /api/payout/summary` - fetch payout metrics
+- `GET /api/metrics/admin-dashboard` - load admin insights
 
-- quote and activate a weekly policy
-- toggle shift-aware coverage
-- trigger claims manually or via zero-touch automation
-- explain claim decisions
-- process payouts
-- review operations in an admin console
+## Future Improvements
 
-It is strongest as a demoable, web-first parametric insurance workflow with AI-assisted reasoning and realistic seeded data for presentations and judging.
+- Integrate live weather, traffic, and disruption feeds instead of simulated inputs
+- Replace demo payout simulation with a production-grade provider workflow
+- Expand test coverage for AI engine and end-to-end claim journeys
+- Add role-based audit trails and stronger production security hardening
+- Containerize all services for smoother deployment and scaling
+- Introduce event-driven processing for high-volume automated triggers
+
+## Contribution Guidelines
+
+Contributions are welcome.
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes with clear commit messages
+4. Run relevant tests before submitting
+5. Open a pull request with a short summary of what changed
+
+For larger changes, open an issue first so the implementation direction can be aligned early.
+
+## License
+
+This project is documented here with an `MIT` license assumption unless you choose a different license for the repository.
